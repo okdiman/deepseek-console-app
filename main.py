@@ -3,95 +3,64 @@ import os
 import sys
 import asyncio
 import aiohttp
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
 
-class DeepSeekClient:
-    def __init__(self):
-        self.api_key = os.getenv('DEEPSEEK_API_KEY')
-        self.api_url = 'https://api.deepseek.com/v1/chat/completions'
+async def send_message_to_api(message):
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        return "❌ API key not found"
         
-        if not self.api_key:
-            print('Error: DEEPSEEK_API_KEY not found!')
-            sys.exit(1)
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    payload = {"model": "deepseek-chat", "messages": [{"role": "user", "content": message}], "max_tokens": 4000}
     
-    async def send_message(self, message: str) -> str:
-        headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json'
-        }
-        
-        payload = {
-            'model': 'deepseek-chat',
-            'messages': [{'role': 'user', 'content': message}],
-            'max_tokens': 4000
-        }
-        
-        try:
-            timeout = aiohttp.ClientTimeout(total=30)
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.api_url, headers=headers, json=payload, timeout=timeout) as response:
-                    if response.status != 200:
-                        return f'Error: HTTP {response.status}'
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post("https://api.deepseek.com/v1/chat/completions", headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                if response.status != 200:
+                    text = await response.text()
+                    return f"❌ HTTP Error {response.status}: {text[:100]}"
                     
-                    data = await response.json()
-                    return data['choices'][0]['message']['content']
-                    
-        except Exception as e:
-            return f'Error: {str(e)}'
-
-class ConsoleApp:
-    def __init__(self):
-        self.client = DeepSeekClient()
-    
-    def print_welcome(self):
-        print('=' * 60)
-        print('🚀 DeepSeek Console Application')
-        print('=' * 60)
-        print('Commands:')
-        print('- Type any question to get AI response')
-        print('- /help - Show this help')
-        print('- /quit or /exit - Exit application')
-        print('=' * 60)
-    
-    async def run(self):
-        self.print_welcome()
-        
-        while True:
-            try:
-                user_input = input('Your message: ').strip()
-                
-                if not user_input:
-                    continue
-                
-                if user_input.lower() in ['/quit', '/exit', 'quit', 'exit']:
-                    print('👋 Goodbye!')
-                    break
-                elif user_input.lower() in ['/help', 'help']:
-                    self.print_welcome()
-                    continue
-                
-                print('🤖 AI: Processing...')
-                response = await self.client.send_message(user_input)
-                print(f'🤖 AI: {response}')
-                    
-            except EOFError:
-                print('👋 Goodbye!')
-                break
-            except KeyboardInterrupt:
-                print('👋 Goodbye!')
-                break
-            except Exception as e:
-                print(f'❌ Error: {e}')
+                data = await response.json()
+                return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"❌ Error: {type(e).__name__}: {str(e)}"
 
 async def main():
-    app = ConsoleApp()
-    await app.run()
+    print("=" * 60)
+    print("🚀 DeepSeek Console Application")
+    print("=" * 60)
+    print("Commands: /help, /debug, /quit")
+    print("=" * 60)
+    
+    while True:
+        try:
+            user_input = input("Your message: ").strip()
+            
+            if not user_input:
+                continue
+                
+            if user_input == "/quit":
+                print("👋 Goodbye!")
+                break
+            elif user_input == "/debug":
+                print("🔍 Testing API...")
+                result = await send_message_to_api("Test message")
+                print(f"📋 Result: {result}")
+            elif user_input == "/help":
+                print("Commands: /help, /debug, /quit")
+            else:
+                print("🤖 AI: Processing...")
+                response = await send_message_to_api(user_input)
+                print(f"🤖 AI: {response}")
+                
+        except (EOFError, KeyboardInterrupt):
+            print("👋 Goodbye!")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
 
-if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print('👋 Goodbye!')
-        sys.exit(0)
+if __name__ == "__main__":
+    asyncio.run(main())
