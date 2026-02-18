@@ -1,8 +1,8 @@
 # 🚀 DeepSeek Console Application
 
-Простое консольное приложение для общения с DeepSeek AI через API (со стримингом ответа).
+A simple console app to chat with DeepSeek AI via the API (with streaming responses).
 
-## Быстрый старт
+## Quick Start
 
 ```/dev/null/shell#L1-6
 git clone https://github.com/okdiman/deepseek-console-app.git
@@ -13,35 +13,35 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Открой `.env` и добавь ключ:
+Open `.env` and add your key:
 
 ```/dev/null/dotenv#L1-1
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 ```
 
-Запуск:
+Run:
 
 ```/dev/null/shell#L1-1
 python3 main.py
 ```
 
-## Конфигурация (опционально)
+## Configuration (optional)
 
-Через переменные окружения:
+Via environment variables:
 
-- `DEEPSEEK_API_KEY` — **обязательно**
-- `DEEPSEEK_API_TIMEOUT_SECONDS` — таймаут чтения (по умолчанию 60)
-- `DEEPSEEK_API_MAX_TOKENS` — лимит токенов (по умолчанию 4000)
-- `DEEPSEEK_API_MODEL` — модель (по умолчанию `deepseek-chat`)
-- `DEEPSEEK_API_URL` — URL API (по умолчанию `https://api.deepseek.com/v1/chat/completions`)
+- `DEEPSEEK_API_KEY` — **required**
+- `DEEPSEEK_API_TIMEOUT_SECONDS` — read timeout (default 60)
+- `DEEPSEEK_API_MAX_TOKENS` — token limit (default 4000)
+- `DEEPSEEK_API_MODEL` — model (default `deepseek-chat`)
+- `DEEPSEEK_API_URL` — API URL (default `https://api.deepseek.com/v1/chat/completions`)
 
-## Команды
+## Commands
 
-- Любой текст — отправить запрос
-- `/help` — показать справку
-- `/quit` или `/exit` — выход
+- Any text — send a request
+- `/help` — show help
+- `/quit` or `/exit` — exit
 
-## Пример сессии (стриминг)
+## Session Example (streaming)
 
 ```/dev/null/console#L1-12
 ============================================================
@@ -53,14 +53,14 @@ Commands:
 - /quit or /exit - Exit application
 ============================================================
 
-Your message: Привет! Объясни, что такое блокчейн.
-🤖 AI: Блокчейн — это распределённая база данных...
+Your message: Hi! Explain what blockchain is.
+🤖 AI: Blockchain is a distributed database...
 ```
 
-## Частые проблемы
+## Common Issues
 
-- **Ошибка `DEEPSEEK_API_KEY not found`** — проверь `.env` и ключ.
-- **Сетевые ошибки** — проверь интернет и валидность ключа.
+- **Error `DEEPSEEK_API_KEY not found`** — check `.env` and the key.
+- **Network errors** — check your internet connection and key validity.
 
 ---
 MIT License
