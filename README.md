@@ -13,6 +13,18 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+Project structure (main code is now in a package):
+```/dev/null/tree#L1-7
+deepseek-console-app/
+  deepseek_console_app/
+    client.py
+    config.py
+    console_app.py
+    session.py
+    stream_printer.py
+    main.py
+```
+
 Open `.env` and add your key:
 
 ```/dev/null/dotenv#L1-1
@@ -21,8 +33,10 @@ DEEPSEEK_API_KEY=your_deepseek_api_key_here
 
 Run:
 
-```/dev/null/shell#L1-1
+```/dev/null/shell#L1-2
 python3 main.py
+# or
+python3 -m deepseek_console_app.main
 ```
 
 ## Configuration (optional)
@@ -34,6 +48,21 @@ Via environment variables:
 - `DEEPSEEK_API_MAX_TOKENS` — token limit (default 4000)
 - `DEEPSEEK_API_MODEL` — model (default `deepseek-chat`)
 - `DEEPSEEK_API_URL` — API URL (default `https://api.deepseek.com/v1/chat/completions`)
+
+## OptionalRequestParams
+
+Optional request parameters live in `deepseek_console_app/config.py` inside the `OptionalRequestParams` dataclass.  
+These are wired into the request payload in `deepseek_console_app/client.py`.
+
+You can tweak:
+
+- `frequency_penalty` (float, -2..2) — penalize repeated tokens.
+- `presence_penalty` (float, -2..2) — encourage new topics.
+- `response_format` (`{"type": "text"}` or `{"type": "json_object"}`) — force JSON output if set to `json_object` (remember to instruct JSON in messages).
+- `stop` (string or list of strings) — stop sequences for generation.
+- `thinking` (`{"type": "enabled"}` or `{"type": "disabled"}`) — enable/disable reasoning mode.
+
+Edit the defaults directly in `OptionalRequestParams` to experiment with behavior.
 
 ## Commands
 

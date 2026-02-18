@@ -1,0 +1,1 @@
+"""DeepSeek console application package."""
