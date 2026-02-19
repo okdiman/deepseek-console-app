@@ -27,6 +27,7 @@ class DeepSeekClient:
             "max_tokens": self._config.max_tokens,
             "stream": True,
             # Optional params (safe defaults; change to experiment)
+            "temperature": params.temperature,
             "frequency_penalty": params.frequency_penalty,
             "presence_penalty": params.presence_penalty,
             "response_format": params.response_format,

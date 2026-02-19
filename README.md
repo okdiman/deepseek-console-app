@@ -56,6 +56,7 @@ These are wired into the request payload in `deepseek_console_app/client.py`.
 
 You can tweak:
 
+- `temperature` (float, typically 0..2) — controls randomness/creativity of output.
 - `frequency_penalty` (float, -2..2) — penalize repeated tokens.
 - `presence_penalty` (float, -2..2) — encourage new topics.
 - `response_format` (`{"type": "text"}` or `{"type": "json_object"}`) — force JSON output if set to `json_object` (remember to instruct JSON in messages).

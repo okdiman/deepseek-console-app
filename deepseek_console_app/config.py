@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 class OptionalRequestParams:
     frequency_penalty: float = 0.0  # [-2, 2] penalize repeated tokens
     presence_penalty: float = 0.0  # [-2, 2] encourage new topics
+    temperature: float = 1.0  # [0, 2] randomness; higher = more creative
     response_format: Dict[str, str] = field(
         default_factory=lambda: {"type": "text"}
     )  # or {"type": "json_object"} (must instruct JSON in messages)
