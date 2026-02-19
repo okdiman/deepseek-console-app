@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
+
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Optional
 
 from dotenv import load_dotenv
 
@@ -11,12 +11,12 @@ from dotenv import load_dotenv
 class OptionalRequestParams:
     frequency_penalty: float = 0.0  # [-2, 2] penalize repeated tokens
     presence_penalty: float = 0.0  # [-2, 2] encourage new topics
-    temperature: float = 1.0  # [0, 2] randomness; higher = more creative
-    response_format: Dict[str, str] = field(
+    temperature: float = 0.7  # [0, 2] randomness; higher = more creative
+    response_format: dict[str, str] = field(
         default_factory=lambda: {"type": "text"}
     )  # or {"type": "json_object"} (must instruct JSON in messages)
-    stop: Optional[object] = None  # string or list of strings
-    thinking: Dict[str, str] = field(
+    stop: object | None = None  # string or list of strings
+    thinking: dict[str, str] = field(
         default_factory=lambda: {"type": "disabled"}
     )  # "enabled" or "disabled"
 
@@ -47,10 +47,16 @@ def load_config() -> ClientConfig:
         "DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions"
     )
 
+    defaults = OptionalRequestParams()
+    optional_params = defaults
+
+    print(f"ℹ️  temperature: {optional_params.temperature}")
+
     return ClientConfig(
         api_key=api_key,
         api_url=api_url,
         model=model,
         max_tokens=max_tokens,
         read_timeout_seconds=read_timeout,
+        optional_params=optional_params,
     )

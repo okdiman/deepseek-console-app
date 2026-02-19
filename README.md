@@ -39,6 +39,15 @@ python3 main.py
 python3 -m deepseek_console_app.main
 ```
 
+Clean run (removes `__pycache__` and disables bytecode caching):
+
+```/dev/null/shell#L1-2
+chmod +x scripts/run_clean.sh
+./scripts/run_clean.sh
+```
+
+Project context (quick onboarding): `docs/PROJECT_CONTEXT.md`
+
 ## Configuration (optional)
 
 Via environment variables:
