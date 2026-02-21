@@ -31,4 +31,5 @@ Edit defaults in `deepseek_console_app/config.py`:
 
 ## Notes
 - Streaming parses `data:` chunks.
+- `/temps` command is handled in `ConsoleApp._handle_temps_command` (compare responses across multiple temperatures).
 - If behavior seems stale, run clean script (removes `__pycache__`).

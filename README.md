@@ -77,8 +77,9 @@ Edit the defaults directly in `OptionalRequestParams` to experiment with behavio
 ## Commands
 
 - Any text — send a request
-- `/help` — show help
-- `/quit` or `/exit` — exit
+- /help — show help
+- /temps [temps] [question] — compare temperatures (default 0,0.7,1.2)
+- /quit or /exit — exit
 
 ## Session Example (streaming)
 
@@ -89,6 +90,7 @@ Edit the defaults directly in `OptionalRequestParams` to experiment with behavio
 Commands:
 - Type any question to get AI response
 - /help - Show this help
+- /temps [temps] [question] - Compare temperatures (default 0,0.7,1.2)
 - /quit or /exit - Exit application
 ============================================================
 
