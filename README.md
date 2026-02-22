@@ -25,9 +25,11 @@ deepseek-console-app/
     main.py
 ```
 
-Open `.env` and add your key:
+Open `.env` and add your key(s) and provider:
 
-```/dev/null/dotenv#L1-1
+```/dev/null/dotenv#L1-4
+PROVIDER=groq
+GROQ_API_KEY=your_groq_api_key_here
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 ```
 
@@ -52,11 +54,23 @@ Project context (quick onboarding): `docs/PROJECT_CONTEXT.md`
 
 Via environment variables:
 
-- `DEEPSEEK_API_KEY` — **required**
+- `PROVIDER` — `deepseek` or `groq` (default `deepseek`)
+
+DeepSeek:
+- `DEEPSEEK_API_KEY` — **required** when `PROVIDER=deepseek`
 - `DEEPSEEK_API_TIMEOUT_SECONDS` — read timeout (default 60)
 - `DEEPSEEK_API_MAX_TOKENS` — token limit (default 4000)
 - `DEEPSEEK_API_MODEL` — model (default `deepseek-chat`)
 - `DEEPSEEK_API_URL` — API URL (default `https://api.deepseek.com/v1/chat/completions`)
+- `DEEPSEEK_MODELS_URL` — models endpoint for `/models` (optional)
+
+Groq:
+- `GROQ_API_KEY` — **required** when `PROVIDER=groq`
+- `GROQ_API_TIMEOUT_SECONDS` — read timeout (default 60)
+- `GROQ_API_MAX_TOKENS` — token limit (default 4000)
+- `GROQ_API_MODEL` — model (default `moonshotai/kimi-k2-instruct`)
+- `GROQ_API_URL` — API URL (default `https://api.groq.com/openai/v1/chat/completions`)
+- `GROQ_MODELS_URL` — models endpoint for `/models` (default `https://api.groq.com/openai/v1/models`)
 
 ## OptionalRequestParams
 
@@ -79,11 +93,22 @@ Edit the defaults directly in `OptionalRequestParams` to experiment with behavio
 - Any text — send a request
 - /help — show help
 - /temps [temps] [question] — compare temperatures (default 0,0.7,1.2)
+- /provider — show current provider and model
+- /models — list available models for current provider
 - /quit or /exit — exit
+
+## Model Comparison
+
+Run:
+
+```/dev/null/shell#L1-1
+python3 -m deepseek_console_app.comparing.model_compare --prompt "..."
+```
+
 
 ## Session Example (streaming)
 
-```/dev/null/console#L1-12
+```/dev/null/console#L1-14
 ============================================================
 🚀 DeepSeek Console Application
 ============================================================
@@ -91,6 +116,8 @@ Commands:
 - Type any question to get AI response
 - /help - Show this help
 - /temps [temps] [question] - Compare temperatures (default 0,0.7,1.2)
+- /provider - Show current provider and model
+- /models - List available models for current provider
 - /quit or /exit - Exit application
 ============================================================
 

@@ -18,7 +18,7 @@ class StreamMetrics:
 
 
 class DeepSeekClient:
-    """HTTP client for DeepSeek Chat Completions (streaming)."""
+    """HTTP client for DeepSeek or Groq Chat Completions (streaming)."""
 
     def __init__(self, config: ClientConfig) -> None:
         self._config = config
@@ -45,12 +45,17 @@ class DeepSeekClient:
             "temperature": temperature
             if temperature is not None
             else params.temperature,
-            "frequency_penalty": params.frequency_penalty,
-            "presence_penalty": params.presence_penalty,
             "response_format": params.response_format,
             "stop": params.stop,
-            "thinking": params.thinking,
         }
+        if self._config.provider == "deepseek":
+            payload.update(
+                {
+                    "frequency_penalty": params.frequency_penalty,
+                    "presence_penalty": params.presence_penalty,
+                    "thinking": params.thinking,
+                }
+            )
 
         start_time = perf_counter()
         usage: Optional[dict] = None
