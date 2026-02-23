@@ -16,6 +16,9 @@ class ChatSession:
         self._messages.append({"role": "assistant", "content": content})
         self._trim()
 
+    def clear(self) -> None:
+        self._messages = []
+
     def messages(self) -> List[Dict[str, str]]:
         return list(self._messages)
 

@@ -1,16 +1,18 @@
-from typing import List
-
 import aiohttp
 
+from .android_agent import AndroidAgent
 from .client import DeepSeekClient
 from .session import ChatSession
 from .stream_printer import StreamPrinter
 
 
 class ConsoleApp:
-    def __init__(self, client: DeepSeekClient, session: ChatSession) -> None:
+    def __init__(
+        self, client: DeepSeekClient, session: ChatSession, agent: AndroidAgent
+    ) -> None:
         self._client = client
         self._session = session
+        self._agent = agent
 
     def print_welcome(self) -> None:
         print("=" * 60)
@@ -19,73 +21,12 @@ class ConsoleApp:
         print("Commands:")
         print("- Type any question to get AI response")
         print("- /help - Show this help")
-        print("- /temps [temps] [question] - Compare temperatures (default 0,0.7,1.2)")
+        print("- /clear - Clear chat context")
+        print("- /context - Show chat history size")
         print("- /provider - Show current provider and model")
         print("- /models - List available models for current provider")
         print("- /quit or /exit - Exit application")
         print("=" * 60)
-
-    def _parse_temperatures(self, value: str) -> List[float]:
-        parts = [p.strip() for p in value.split(",") if p.strip()]
-        return [float(p) for p in parts]
-
-    async def _handle_temps_command(self, user_input: str) -> None:
-        parts = user_input.split(maxsplit=2)
-        temps_str = "0,0.7,1.2"
-        query = ""
-        if len(parts) >= 2:
-            temps_str = parts[1]
-        if len(parts) == 3:
-            query = parts[2]
-        if not query:
-            query = input("Prompt to compare: ").strip()
-            if not query:
-                return
-        try:
-            temperatures = self._parse_temperatures(temps_str)
-        except ValueError:
-            print(
-                "❌ Invalid temperatures. Use comma-separated numbers, e.g. 0,0.7,1.2"
-            )
-            return
-
-        messages = self._session.messages() + [{"role": "user", "content": query}]
-        for t in temperatures:
-            print("=" * 12, f"temperature={t}", "=" * 12)
-            print("🤖 AI: ", end="", flush=True)
-            printer = StreamPrinter(stall_seconds=3)
-            response_parts: List[str] = []
-
-            printer.start()
-            try:
-                async for chunk in self._client.stream_message(messages, temperature=t):
-                    printer.on_chunk(chunk)
-                    response_parts.append(chunk)
-            finally:
-                printer.stop()
-                await printer.wait_closed()
-
-            print()
-            metrics = self._client.last_metrics()
-            if metrics:
-                duration_ms = metrics.duration_seconds * 1000.0
-                usage_parts = []
-                if metrics.prompt_tokens is not None:
-                    usage_parts.append(f"prompt={metrics.prompt_tokens}")
-                if metrics.completion_tokens is not None:
-                    usage_parts.append(f"completion={metrics.completion_tokens}")
-                if metrics.total_tokens is not None:
-                    usage_parts.append(f"total={metrics.total_tokens}")
-                usage_text = ", ".join(usage_parts) if usage_parts else "n/a"
-                cost_text = (
-                    f"${metrics.cost_usd:.6f}"
-                    if metrics.cost_usd is not None
-                    else "n/a"
-                )
-                print(
-                    f"⏱️  Time: {duration_ms:.0f} ms | Tokens: {usage_text} | Cost: {cost_text}"
-                )
-            print()
 
     def _handle_provider_command(self) -> None:
         config = self._client._config
@@ -143,6 +84,16 @@ class ConsoleApp:
                     self.print_welcome()
                     continue
 
+                if user_input.lower() in ["/clear", "clear"]:
+                    self._session.clear()
+                    print("🧹 Context cleared.")
+                    continue
+
+                if user_input.lower() in ["/context", "context"]:
+                    message_count = len(self._session.messages())
+                    print(f"📚 Context size: {message_count} messages.")
+                    continue
+
                 if user_input.lower() in ["/provider", "provider"]:
                     self._handle_provider_command()
                     continue
@@ -151,30 +102,18 @@ class ConsoleApp:
                     await self._handle_models_command()
                     continue
 
-                if user_input.lower().startswith("/temps"):
-                    await self._handle_temps_command(user_input)
-                    continue
-
-                self._session.add_user(user_input)
-
                 print("🤖 AI: ", end="", flush=True)
                 printer = StreamPrinter(stall_seconds=3)
-                response_parts: List[str] = []
 
                 printer.start()
                 try:
-                    async for chunk in self._client.stream_message(
-                        self._session.messages()
-                    ):
+                    async for chunk in self._agent.stream_reply(user_input):
                         printer.on_chunk(chunk)
-                        response_parts.append(chunk)
                 finally:
                     printer.stop()
                     await printer.wait_closed()
 
                 print()
-                response = "".join(response_parts).strip()
-                self._session.add_assistant(response)
 
                 metrics = self._client.last_metrics()
                 if metrics:
