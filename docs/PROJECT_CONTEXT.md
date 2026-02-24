@@ -43,6 +43,11 @@ Groq:
 - `GROQ_LLAMA3_1_70B_MODEL` (optional for `model_compare.py`, default `llama-3.1-70b-versatile`)
 - `DEEPSEEK_CHAT_MODEL` (optional for `model_compare.py`, default `deepseek-chat`)
 
+Context persistence:
+- `DEEPSEEK_PERSIST_CONTEXT` (default `true`)
+- `DEEPSEEK_CONTEXT_PATH` (default `~/.deepseek_console_app/context.json`)
+- `DEEPSEEK_CONTEXT_MAX_MESSAGES` (default 40)
+
 ## OptionalRequestParams (code-only)
 Edit defaults in `deepseek_console_app/config.py`:
 `temperature`, `frequency_penalty`, `presence_penalty`, `response_format`, `stop`, `thinking`
@@ -52,7 +57,31 @@ Edit defaults in `deepseek_console_app/config.py`:
 - `AndroidAgent` injects an Android-focused `system` prompt for senior Android guidance.
 - `/provider` prints current provider and model.
 - `/models` lists available models for the current provider (if models endpoint is configured).
-- `/clear` clears chat context.
+- `/clear` clears chat context (and overwrites persisted context if enabled).
 - `/context` shows chat history size.
+- Persisted context loads on startup when `DEEPSEEK_PERSIST_CONTEXT=true`.
 - `python3 -m deepseek_console_app.comparing.model_compare --prompt "..."` — сравнивает Llama-3.1-8B (weak), Llama-3.1-70B (medium) и DeepSeek (API).
 - If behavior seems stale, run clean script (removes `__pycache__`).
+
+
+## Maintenance Rule
+After any code changes, verify `PROJECT_CONTEXT.md` and update it if needed.
+
+## Persisted Context File (format)
+Default path: `~/.deepseek_console_app/context.json`
+Structure:
+{
+  "format_version": 1,
+  "provider": "deepseek",
+  "model": "deepseek-chat",
+  "updated_at": "2025-01-01T12:00:00Z",
+  "messages": [
+    {"role": "user", "content": "Привет"},
+    {"role": "assistant", "content": "Привет! Чем помочь?"}
+  ]
+}
+
+## Quick Verification
+1. Run the app, send a couple of messages.
+2. Exit and restart the app — context should be restored.
+3. Run `/clear` and restart — context should be empty.

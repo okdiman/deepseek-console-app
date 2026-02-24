@@ -8,7 +8,7 @@
 ## Architectural Style
 - **Layered architecture** with clear boundaries:
   - **Interface layer**: console I/O, UX, commands (`console_app.py`, `stream_printer.py`)
-  - **Domain/session layer**: chat history and message management (`session.py`)
+  - **Domain/session layer**: chat history, message management, and persistence (`session.py`)
   - **Client/integration layer**: HTTP API calls & streaming parsing (`client.py`)
   - **Configuration layer**: runtime configuration (`config.py`)
 - **Single responsibility per module**.
@@ -33,8 +33,9 @@
 - Ignore malformed JSON chunks safely (skip and continue).
 
 ## Configuration Rules
-- Environment variables are used **only** for core config:
+- Environment variables are used for core config and persistence settings:
   - API key, timeouts, max tokens, model, URL.
+  - Context persistence: enable/disable, storage path, max messages.
 - Optional model parameters (`temperature`, `frequency_penalty`, etc.) are **code-only**.
 
 ## Code Organization Rules
@@ -56,9 +57,11 @@
 When adding features:
 - Place UI/CLI behavior in `console_app.py`.
 - Place API changes in `client.py`.
-- Place stateful conversation behavior in `session.py`.
+- Place stateful conversation behavior and persistence mechanics in `session.py`.
+- `console_app.py` triggers load/save; `session.py` owns storage details.
 - Keep configuration changes in `config.py`.
 - Keep new utilities small and scoped to one responsibility.
+- After any code changes, verify `PROJECT_CONTEXT.md` and update it if needed.
 
 ## Non-Goals
 - No heavy frameworks.
