@@ -71,6 +71,10 @@ class ConsoleApp:
     async def run(self) -> None:
         self.print_welcome()
 
+        config = self._client._config
+        if config.persist_context:
+            self._session.load(config.context_path)
+
         while True:
             try:
                 user_input = input("Your message: ").strip()
@@ -86,6 +90,10 @@ class ConsoleApp:
 
                 if user_input.lower() in ["/clear", "clear"]:
                     self._session.clear()
+                    if config.persist_context:
+                        self._session.save(
+                            config.context_path, config.provider, config.model
+                        )
                     print("🧹 Context cleared.")
                     continue
 
@@ -114,6 +122,11 @@ class ConsoleApp:
                     await printer.wait_closed()
 
                 print()
+
+                if config.persist_context:
+                    self._session.save(
+                        config.context_path, config.provider, config.model
+                    )
 
                 metrics = self._client.last_metrics()
                 if metrics:

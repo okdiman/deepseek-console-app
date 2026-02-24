@@ -32,6 +32,9 @@ class ClientConfig:
     read_timeout_seconds: int
     price_per_1k_prompt_usd: float
     price_per_1k_completion_usd: float
+    persist_context: bool
+    context_path: str
+    context_max_messages: int
     optional_params: OptionalRequestParams = field(
         default_factory=OptionalRequestParams
     )
@@ -83,6 +86,14 @@ def load_config() -> ClientConfig:
     defaults = OptionalRequestParams()
     optional_params = defaults
 
+    persist_context_raw = os.getenv("DEEPSEEK_PERSIST_CONTEXT", "true").strip().lower()
+    persist_context = persist_context_raw not in {"0", "false", "no", "off"}
+    context_path = os.getenv(
+        "DEEPSEEK_CONTEXT_PATH",
+        os.path.expanduser("~/.deepseek_console_app/context.json"),
+    )
+    context_max_messages = int(os.getenv("DEEPSEEK_CONTEXT_MAX_MESSAGES", "40"))
+
     print(f"ℹ️  provider: {provider}")
     print(f"ℹ️  model: {model}")
     print(f"ℹ️  temperature: {optional_params.temperature}")
@@ -97,5 +108,8 @@ def load_config() -> ClientConfig:
         read_timeout_seconds=read_timeout,
         price_per_1k_prompt_usd=price_prompt,
         price_per_1k_completion_usd=price_completion,
+        persist_context=persist_context,
+        context_path=context_path,
+        context_max_messages=context_max_messages,
         optional_params=optional_params,
     )

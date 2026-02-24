@@ -11,7 +11,7 @@ from deepseek_console_app.session import ChatSession
 async def main() -> None:
     config = load_config()
     client = DeepSeekClient(config)
-    session = ChatSession(max_messages=40)
+    session = ChatSession(max_messages=config.context_max_messages)
     agent = AndroidAgent(client, session)
     app = ConsoleApp(client, session, agent)
     await app.run()

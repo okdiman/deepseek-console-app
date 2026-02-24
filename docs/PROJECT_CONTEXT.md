@@ -3,7 +3,7 @@
 Architecture guidelines: `docs/ARCHITECTURE.md`
 
 ## What it is
-Console app for streaming chat with DeepSeek Chat Completions API.
+Console app for streaming chat with DeepSeek Chat Completions API, using an Android-focused agent.
 
 ## Run
 - `python3 main.py`  
@@ -14,6 +14,7 @@ Console app for streaming chat with DeepSeek Chat Completions API.
 - `deepseek_console_app/main.py` — app bootstrap
 - `deepseek_console_app/config.py` — config + optional params (code-only)
 - `deepseek_console_app/client.py` — streaming HTTP client
+- `deepseek_console_app/android_agent.py` — Android-focused agent + system prompt
 - `deepseek_console_app/console_app.py` — CLI loop
 - `deepseek_console_app/session.py` — message history
 - `deepseek_console_app/stream_printer.py` — stall indicator
@@ -48,8 +49,10 @@ Edit defaults in `deepseek_console_app/config.py`:
 
 ## Notes
 - Streaming parses `data:` chunks.
-- `/temps` command is handled in `ConsoleApp._handle_temps_command` (compare responses across multiple temperatures).
+- `AndroidAgent` injects an Android-focused `system` prompt for senior Android guidance.
 - `/provider` prints current provider and model.
 - `/models` lists available models for the current provider (if models endpoint is configured).
+- `/clear` clears chat context.
+- `/context` shows chat history size.
 - `python3 -m deepseek_console_app.comparing.model_compare --prompt "..."` — сравнивает Llama-3.1-8B (weak), Llama-3.1-70B (medium) и DeepSeek (API).
 - If behavior seems stale, run clean script (removes `__pycache__`).
