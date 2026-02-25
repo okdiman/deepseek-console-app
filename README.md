@@ -35,10 +35,12 @@ DEEPSEEK_API_KEY=your_deepseek_api_key_here
 
 Run:
 
-```/dev/null/shell#L1-2
+```/dev/null/shell#L1-5
 python3 main.py
 # or
 python3 -m deepseek_console_app.main
+# web UI
+python3 -m deepseek_console_app.web_app
 ```
 
 Clean run (removes `__pycache__` and disables bytecode caching):
@@ -63,6 +65,7 @@ DeepSeek:
 - `DEEPSEEK_API_MODEL` — model (default `deepseek-chat`)
 - `DEEPSEEK_API_URL` — API URL (default `https://api.deepseek.com/v1/chat/completions`)
 - `DEEPSEEK_MODELS_URL` — models endpoint for `/models` (optional)
+- `DEEPSEEK_WEB_CONTEXT_PATH` — optional override for web UI context path
 
 Groq:
 - `GROQ_API_KEY` — **required** when `PROVIDER=groq`
@@ -87,6 +90,19 @@ You can tweak:
 - `thinking` (`{"type": "enabled"}` or `{"type": "disabled"}`) — enable/disable reasoning mode.
 
 Edit the defaults directly in `OptionalRequestParams` to experiment with behavior.
+
+## Web UI
+
+Run:
+
+```/dev/null/shell#L1-1
+python3 -m deepseek_console_app.web_app
+```
+
+Notes:
+- Streams via SSE at `/stream`
+- Agent selector; responses show the active agent name
+- Stats panel shows local tokens, API usage, cost, and session cost (auto-hides when empty)
 
 ## Commands
 

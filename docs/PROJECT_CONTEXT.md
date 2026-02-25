@@ -8,10 +8,12 @@ Console app for streaming chat with DeepSeek Chat Completions API, using an Andr
 ## Run
 - `python3 main.py`  
 - `python3 -m deepseek_console_app.main`  
+- Web UI: `python3 -m deepseek_console_app.web_app` (opens http://127.0.0.1:8000)
 - Clean run: `chmod +x scripts/run_clean.sh && ./scripts/run_clean.sh`
 
 ## Key Files
 - `deepseek_console_app/main.py` — app bootstrap
+- `deepseek_console_app/web_app.py` — web UI (FastAPI + SSE)
 - `deepseek_console_app/config.py` — config + optional params (code-only)
 - `deepseek_console_app/client.py` — streaming HTTP client
 - `deepseek_console_app/android_agent.py` — Android-focused agent + system prompt
@@ -46,6 +48,7 @@ Groq:
 Context persistence:
 - `DEEPSEEK_PERSIST_CONTEXT` (default `true`)
 - `DEEPSEEK_CONTEXT_PATH` (default `~/.deepseek_console_app/context.json`)
+- `DEEPSEEK_WEB_CONTEXT_PATH` (optional override for web UI)
 - `DEEPSEEK_CONTEXT_MAX_MESSAGES` (default 40)
 
 ## OptionalRequestParams (code-only)
@@ -54,6 +57,9 @@ Edit defaults in `deepseek_console_app/config.py`:
 
 ## Notes
 - Streaming parses `data:` chunks.
+- Web UI streams via SSE at `/stream`.
+- Web UI has an agent selector and shows the active agent name in responses.
+- Web UI shows a stats panel with local tokens, API usage, cost, and session cost (auto-hides when empty).
 - `AndroidAgent` injects an Android-focused `system` prompt for senior Android guidance.
 - Local token counting is shown in the CLI: request, full history, and response (uses `tiktoken` if available, otherwise a heuristic).
 - API usage tokens (prompt/completion/total) are shown when provided by the provider.
