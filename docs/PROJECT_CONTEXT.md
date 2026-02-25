@@ -55,6 +55,9 @@ Edit defaults in `deepseek_console_app/config.py`:
 ## Notes
 - Streaming parses `data:` chunks.
 - `AndroidAgent` injects an Android-focused `system` prompt for senior Android guidance.
+- Local token counting is shown in the CLI: request, full history, and response (uses `tiktoken` if available, otherwise a heuristic).
+- API usage tokens (prompt/completion/total) are shown when provided by the provider.
+- If context length is exceeded, the client raises a clear `Context length exceeded` error.
 - `/provider` prints current provider and model.
 - `/models` lists available models for the current provider (if models endpoint is configured).
 - `/clear` clears chat context (and overwrites persisted context if enabled).

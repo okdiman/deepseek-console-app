@@ -13,6 +13,7 @@ class ConsoleApp:
         self._client = client
         self._session = session
         self._agent = agent
+        self._session_cost_usd = 0.0
 
     def print_welcome(self) -> None:
         print("=" * 60)
@@ -90,6 +91,7 @@ class ConsoleApp:
 
                 if user_input.lower() in ["/clear", "clear"]:
                     self._session.clear()
+                    self._session_cost_usd = 0.0
                     if config.persist_context:
                         self._session.save(
                             config.context_path, config.provider, config.model
@@ -128,6 +130,18 @@ class ConsoleApp:
                         config.context_path, config.provider, config.model
                     )
 
+                token_stats = self._agent.last_token_stats()
+                if token_stats:
+                    req = token_stats.request
+                    hist = token_stats.history
+                    resp = token_stats.response
+                    print(
+                        "🧮 Tokens (local): "
+                        f"request={req.tokens} ({req.method}), "
+                        f"history={hist.tokens} ({hist.method}), "
+                        f"response={resp.tokens} ({resp.method})"
+                    )
+
                 metrics = self._client.last_metrics()
                 if metrics:
                     duration_ms = metrics.duration_seconds * 1000.0
@@ -144,8 +158,11 @@ class ConsoleApp:
                         if metrics.cost_usd is not None
                         else "n/a"
                     )
+                    if metrics.cost_usd is not None:
+                        self._session_cost_usd += metrics.cost_usd
+                    session_cost_text = f"${self._session_cost_usd:.6f}"
                     print(
-                        f"⏱️  Time: {duration_ms:.0f} ms | Tokens: {usage_text} | Cost: {cost_text}"
+                        f"⏱️  Time: {duration_ms:.0f} ms | Tokens: {usage_text} | Cost: {cost_text} | Session Cost: {session_cost_text}"
                     )
 
             except EOFError:

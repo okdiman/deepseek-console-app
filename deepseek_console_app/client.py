@@ -67,6 +67,16 @@ class DeepSeekClient:
                 ) as response:
                     if response.status != 200:
                         body_text = await response.text()
+                        lowered = body_text.lower()
+                        if (
+                            "context_length" in lowered
+                            or ("context" in lowered and "length" in lowered)
+                            or ("context" in lowered and "window" in lowered)
+                            or ("tokens" in lowered and "limit" in lowered)
+                        ):
+                            raise RuntimeError(
+                                f"Context length exceeded | HTTP {response.status} | Body: {body_text}"
+                            )
                         raise RuntimeError(
                             f"HTTP {response.status} | Body: {body_text}"
                         )

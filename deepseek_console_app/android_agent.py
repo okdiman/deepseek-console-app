@@ -5,12 +5,21 @@ from typing import AsyncGenerator, List, Optional
 
 from .client import DeepSeekClient, StreamMetrics
 from .session import ChatSession
+from .token_counter import TokenCount, count_messages_tokens, count_text_tokens
+
+
+@dataclass(frozen=True)
+class TokenStats:
+    request: TokenCount
+    history: TokenCount
+    response: TokenCount
 
 
 @dataclass(frozen=True)
 class AgentResult:
     content: str
     metrics: Optional[StreamMetrics]
+    token_stats: Optional[TokenStats]
 
 
 SYSTEM_PROMPT = (
@@ -37,6 +46,10 @@ class AndroidAgent:
     def __init__(self, client: DeepSeekClient, session: ChatSession) -> None:
         self._client = client
         self._session = session
+        self._last_token_stats: Optional[TokenStats] = None
+
+    def last_token_stats(self) -> Optional[TokenStats]:
+        return self._last_token_stats
 
     async def stream_reply(
         self, user_input: str, temperature: Optional[float] = None
@@ -48,17 +61,34 @@ class AndroidAgent:
         """
         self._session.add_user(user_input)
 
-        response_parts: List[str] = []
-        messages = [
+        model = self._client._config.model
+        request_messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_input},
+        ]
+        history_messages = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ] + self._session.messages()
+
+        request_count = count_messages_tokens(request_messages, model=model)
+        history_count = count_messages_tokens(history_messages, model=model)
+
+        response_parts: List[str] = []
         async for chunk in self._client.stream_message(
-            messages, temperature=temperature
+            history_messages, temperature=temperature
         ):
             response_parts.append(chunk)
             yield chunk
 
         response = "".join(response_parts).strip()
+        response_count = count_text_tokens(response, model=model)
+
+        self._last_token_stats = TokenStats(
+            request=request_count,
+            history=history_count,
+            response=response_count,
+        )
+
         if response:
             self._session.add_assistant(response)
 
@@ -77,4 +107,8 @@ class AndroidAgent:
 
         content = "".join(response_parts).strip()
         metrics = self._client.last_metrics()
-        return AgentResult(content=content, metrics=metrics)
+        return AgentResult(
+            content=content,
+            metrics=metrics,
+            token_stats=self._last_token_stats,
+        )
