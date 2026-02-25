@@ -1,9 +1,9 @@
 import aiohttp
 
-from .android_agent import AndroidAgent
-from .client import DeepSeekClient
-from .session import ChatSession
-from .stream_printer import StreamPrinter
+from ..core.android_agent import AndroidAgent
+from ..core.client import DeepSeekClient
+from ..core.session import ChatSession
+from ..core.stream_printer import StreamPrinter
 
 
 class ConsoleApp:

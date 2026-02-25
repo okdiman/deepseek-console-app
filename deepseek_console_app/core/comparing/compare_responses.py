@@ -2,13 +2,12 @@
 import argparse
 import asyncio
 import json
-import os
-import sys
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 import aiohttp
-from dotenv import load_dotenv
+
+from deepseek_console_app.core.config import ClientConfig, load_config
 
 
 class ApiResult(TypedDict, total=False):
@@ -18,37 +17,6 @@ class ApiResult(TypedDict, total=False):
     text: str
     usage: Dict[str, Any]
     raw: Dict[str, Any]
-
-
-@dataclass(frozen=True)
-class ClientConfig:
-    api_key: str
-    api_url: str = "https://api.deepseek.com/v1/chat/completions"
-    model: str = "deepseek-chat"
-    timeout_seconds: int = 60
-
-
-def load_config() -> ClientConfig:
-    load_dotenv()
-    api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-    if not api_key:
-        print(
-            "❌ DEEPSEEK_API_KEY not found in environment. Please set it in .env or your shell."
-        )
-        sys.exit(1)
-
-    api_url = os.getenv(
-        "DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions"
-    )
-    model = os.getenv("DEEPSEEK_API_MODEL", "deepseek-chat")
-    timeout_seconds = int(os.getenv("DEEPSEEK_API_TIMEOUT_SECONDS", "60"))
-
-    return ClientConfig(
-        api_key=api_key,
-        api_url=api_url,
-        model=model,
-        timeout_seconds=timeout_seconds,
-    )
 
 
 def build_headers(api_key: str) -> Dict[str, str]:
@@ -83,7 +51,7 @@ async def call_api(
 
     result: ApiResult = {"ok": False, "status": 0, "body": ""}
 
-    timeout = aiohttp.ClientTimeout(sock_read=config.timeout_seconds)
+    timeout = aiohttp.ClientTimeout(sock_read=config.read_timeout_seconds)
 
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -149,7 +117,7 @@ async def stream_collect(
 
     result: ApiResult = {"ok": False, "status": 0, "body": ""}
 
-    timeout = aiohttp.ClientTimeout(sock_read=config.timeout_seconds)
+    timeout = aiohttp.ClientTimeout(sock_read=config.read_timeout_seconds)
 
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>DeepSeek Web Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="toolbar">
+      <h1>DeepSeek Web Chat (Streaming)</h1>
+      <button id="clearBtn" type="button">Clear</button>
+    </div>
+    <div id="chat">
+      {{ rendered_messages|safe }}
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="footer">
+      <form id="chatForm">
+        <textarea id="message" placeholder="Напиши сообщение..."></textarea>
+        <select id="agentSelect">
+          <option value="android" selected>{{ agent_name }}</option>
+        </select>
+        <button type="submit">Send</button>
+      </form>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

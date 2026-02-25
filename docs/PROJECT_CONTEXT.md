@@ -5,22 +5,42 @@ Architecture guidelines: `docs/ARCHITECTURE.md`
 ## What it is
 Console app for streaming chat with DeepSeek Chat Completions API, using an Android-focused agent.
 
+## Web UI Structure (after refactor)
+- `deepseek_console_app/web/app.py` — FastAPI app, wires router
+- `deepseek_console_app/web/routes.py` — HTTP routes (`/`, `/clear`, `/stream`)
+- `deepseek_console_app/web/views.py` — HTML rendering (now minimal, uses templates)
+- `deepseek_console_app/web/state.py` — shared state/config/session/agent
+- `deepseek_console_app/web/streaming.py` — SSE streaming helpers
+- `deepseek_console_app/web/static/` — static files (JS, CSS)
+- `deepseek_console_app/web/templates/` — HTML templates (index.html)
+
+## How static/templates are used
+- CSS and JS are now in `web/static/` (e.g. `style.css`, `app.js`)
+- HTML is rendered from `web/templates/index.html` via FastAPI/Jinja2
+- `views.py` loads template and injects messages/agent name
+
+
 ## Run
-- `python3 main.py`  
-- `python3 -m deepseek_console_app.main`  
-- Web UI: `python3 -m deepseek_console_app.web_app` (opens http://127.0.0.1:8000)
+- `python3 -m deepseek_console_app.console.main`  
+- Web UI: `python3 -m deepseek_console_app.web.app` (opens http://127.0.0.1:8000)
 - Clean run: `chmod +x scripts/run_clean.sh && ./scripts/run_clean.sh`
 
 ## Key Files
-- `deepseek_console_app/main.py` — app bootstrap
-- `deepseek_console_app/web_app.py` — web UI (FastAPI + SSE)
-- `deepseek_console_app/config.py` — config + optional params (code-only)
-- `deepseek_console_app/client.py` — streaming HTTP client
-- `deepseek_console_app/android_agent.py` — Android-focused agent + system prompt
-- `deepseek_console_app/console_app.py` — CLI loop
-- `deepseek_console_app/session.py` — message history
-- `deepseek_console_app/stream_printer.py` — stall indicator
-- `deepseek_console_app/comparing/model_compare.py` — сравнение ответов разных моделей
+- `deepseek_console_app/console/main.py` — console app bootstrap
+- `deepseek_console_app/console/app.py` — CLI loop
+- `deepseek_console_app/web/app.py` — FastAPI app
+- `deepseek_console_app/web/routes.py` — web routes
+- `deepseek_console_app/web/views.py` — HTML rendering
+- `deepseek_console_app/web/state.py` — web state/config/session/agent
+- `deepseek_console_app/web/streaming.py` — SSE streaming
+- `deepseek_console_app/web/static/` — static files (JS, CSS)
+- `deepseek_console_app/web/templates/` — HTML templates
+- `deepseek_console_app/core/config.py` — config + optional params (code-only)
+- `deepseek_console_app/core/client.py` — streaming HTTP client
+- `deepseek_console_app/core/android_agent.py` — Android-focused agent + system prompt
+- `deepseek_console_app/core/session.py` — message history
+- `deepseek_console_app/core/stream_printer.py` — stall indicator
+- `deepseek_console_app/core/comparing/model_compare.py` — сравнение ответов разных моделей
 
 ## Config (env)
 Provider selection:
@@ -52,7 +72,7 @@ Context persistence:
 - `DEEPSEEK_CONTEXT_MAX_MESSAGES` (default 40)
 
 ## OptionalRequestParams (code-only)
-Edit defaults in `deepseek_console_app/config.py`:
+Edit defaults in `deepseek_console_app/core/config.py`:
 `temperature`, `frequency_penalty`, `presence_penalty`, `response_format`, `stop`, `thinking`
 
 ## Notes
@@ -69,8 +89,16 @@ Edit defaults in `deepseek_console_app/config.py`:
 - `/clear` clears chat context (and overwrites persisted context if enabled).
 - `/context` shows chat history size.
 - Persisted context loads on startup when `DEEPSEEK_PERSIST_CONTEXT=true`.
-- `python3 -m deepseek_console_app.comparing.model_compare --prompt "..."` — сравнивает Llama-3.1-8B (weak), Llama-3.1-70B (medium) и DeepSeek (API).
+- `python3 -m deepseek_console_app.core.comparing.model_compare --prompt "..."` — сравнивает Llama-3.1-8B (weak), Llama-3.1-70B (medium) и DeepSeek (API).
 - If behavior seems stale, run clean script (removes `__pycache__`).
+
+## Web UI Static/Templates Example
+
+- CSS: `deepseek_console_app/web/static/style.css`
+- JS: `deepseek_console_app/web/static/app.js`
+- HTML: `deepseek_console_app/web/templates/index.html`
+- FastAPI serves static files and renders template via Jinja2
+
 
 
 ## Maintenance Rule

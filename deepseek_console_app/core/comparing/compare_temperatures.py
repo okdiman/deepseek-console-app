@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
-from deepseek_console_app.config import ClientConfig, load_config
+from deepseek_console_app.core.config import ClientConfig, load_config
 
 
 @dataclass

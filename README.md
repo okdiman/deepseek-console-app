@@ -13,16 +13,23 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Project structure (main code is now in a package):
-```/dev/null/tree#L1-7
+Project structure (main code is now in packages):
+```/dev/null/tree#L1-17
 deepseek-console-app/
   deepseek_console_app/
-    client.py
-    config.py
-    console_app.py
-    session.py
-    stream_printer.py
-    main.py
+    core/
+      android_agent.py
+      client.py
+      config.py
+      session.py
+      stream_printer.py
+      token_counter.py
+      comparing/
+    console/
+      app.py
+      main.py
+    web/
+      app.py
 ```
 
 Open `.env` and add your key(s) and provider:
@@ -36,11 +43,10 @@ DEEPSEEK_API_KEY=your_deepseek_api_key_here
 Run:
 
 ```/dev/null/shell#L1-5
-python3 main.py
-# or
-python3 -m deepseek_console_app.main
+# console
+python3 -m deepseek_console_app.console.main
 # web UI
-python3 -m deepseek_console_app.web_app
+python3 -m deepseek_console_app.web.app
 ```
 
 Clean run (removes `__pycache__` and disables bytecode caching):
@@ -77,8 +83,8 @@ Groq:
 
 ## OptionalRequestParams
 
-Optional request parameters live in `deepseek_console_app/config.py` inside the `OptionalRequestParams` dataclass.  
-These are wired into the request payload in `deepseek_console_app/client.py`.
+Optional request parameters live in `deepseek_console_app/core/config.py` inside the `OptionalRequestParams` dataclass.  
+These are wired into the request payload in `deepseek_console_app/core/client.py`.
 
 You can tweak:
 
@@ -96,7 +102,7 @@ Edit the defaults directly in `OptionalRequestParams` to experiment with behavio
 Run:
 
 ```/dev/null/shell#L1-1
-python3 -m deepseek_console_app.web_app
+python3 -m deepseek_console_app.web.app
 ```
 
 Notes:
@@ -118,7 +124,7 @@ Notes:
 Run:
 
 ```/dev/null/shell#L1-1
-python3 -m deepseek_console_app.comparing.model_compare --prompt "..."
+python3 -m deepseek_console_app.core.comparing.model_compare --prompt "..."
 ```
 
 
