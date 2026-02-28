@@ -85,7 +85,10 @@ class GeneralAgent:
         self._session.add_user(user_input)
 
         config = self._client._config
-        if config.compression_enabled and len(self._session.messages()) > config.compression_threshold:
+        
+        user_msg_count = sum(1 for m in self._session.messages() if m.get("role") == "user")
+        # Trigger if the user has sent strictly more messages than the threshold
+        if config.compression_enabled and user_msg_count > config.compression_threshold:
             yield "\n*[System: Сжимаю старый контекст для экономии токенов...]*\n\n"
             await self._compress_history()
 

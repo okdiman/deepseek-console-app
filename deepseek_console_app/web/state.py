@@ -43,7 +43,7 @@ _agents: Dict[str, AndroidAgent | GeneralAgent] = {
     "android": AndroidAgent(_client, _session),
     "general": GeneralAgent(_client, _session),
 }
-_DEFAULT_AGENT_ID = "android"
+_DEFAULT_AGENT_ID = "general"
 
 _session_cost_usd = 0.0
 
