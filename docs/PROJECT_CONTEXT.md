@@ -83,11 +83,16 @@ Edit defaults in `deepseek_console_app/core/config.py`:
 
 ## Notes
 - Streaming parses `data:` chunks.
-- Web UI streams via SSE at `/stream`.
-- Web UI has an agent selector and shows the active agent name in responses.
+- Web UI Streams via SSE at `/stream`.
+- Web UI has an agent selector and a Strategy selector (for General Agent).
+- **Web UI Sidebar**: Displays autonomous chat sessions (branches) with auto-generated titles. Users can switch between them and delete them.
+- **Context Strategies (GeneralAgent)**:
+  - `default`: Folds old context into a running summary to save tokens.
+  - `window`: Strict N-message sliding window. Forgets older text entirely.
+  - `facts`: Extracts and strictly persists key user requirements in a background process.
+  - `branching`: Isolates conversation timelines. Users can branch off old messages into new parallel sessions.
 - Web UI shows a stats panel with local tokens, API usage, cost, and session cost (auto-hides when empty).
-- `AndroidAgent` injects an Android-focused `system` prompt, `GeneralAgent` is for general conversation.
-- If conversation history exceeds `DEEPSEEK_COMPRESSION_THRESHOLD`, older messages are compressed into a `summary` to save tokens.
+- `AndroidAgent` injects an Android-focused `system` prompt, `GeneralAgent` is for general conversation and supports the distinct Context Strategies.
 - Local token counting is shown in the CLI: request, full history, and response (uses `tiktoken` if available, otherwise a heuristic).
 - API usage tokens (prompt/completion/total) are shown when provided by the provider.
 - If context length is exceeded, the client raises a clear `Context length exceeded` error.
