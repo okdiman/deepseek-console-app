@@ -20,14 +20,17 @@ def render_messages(messages: List[Dict[str, str]], agent_name: str) -> str:
     import json
 
     rows = []
-    for msg in messages:
+    for i, msg in enumerate(messages):
         role = msg.get("role", "")
         content = msg.get("content", "")
         role_label = "You" if role == "user" else agent_name
         rows.append(
             f"""
-            <div class="msg {role}">
-                <div class="meta">{role_label}</div>
+            <div class="msg {role}" data-msg-id="{i}">
+                <div class="meta">
+                    {role_label}
+                    <button class="branch-btn" title="Branch from here" style="display:none; font-size:0.7em; margin-left: 8px; cursor: pointer;">Branch</button>
+                </div>
                 <div class="content"></div>
                 <script>
                   (function() {{

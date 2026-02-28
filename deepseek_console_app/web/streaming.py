@@ -33,15 +33,19 @@ def sse_response(event_generator: AsyncGenerator[str, None]) -> StreamingRespons
     )
 
 
-async def stream_events(message: str, agent_id: str) -> AsyncGenerator[str, None]:
+async def stream_events(message: str, agent_id: str, strategy: str = "default", session_id: str = "default") -> AsyncGenerator[str, None]:
     config = get_config()
-    session = get_session()
+    session = get_session(session_id)
     client = get_client()
-    selected_agent = get_agent(agent_id)
+    selected_agent = get_agent(agent_id, session_id=session_id)
 
     try:
-        async for chunk in selected_agent.stream_reply(message):
-            yield sse_event({"delta": chunk})
+        if agent_id == "general":
+            async for chunk in selected_agent.stream_reply(message, strategy=strategy):
+                yield sse_event({"delta": chunk})
+        else:
+            async for chunk in selected_agent.stream_reply(message):
+                yield sse_event({"delta": chunk})
 
         stats: Dict[str, Any] = {}
         token_stats = selected_agent.last_token_stats()

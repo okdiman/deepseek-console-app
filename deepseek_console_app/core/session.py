@@ -13,22 +13,39 @@ class ChatSession:
         self._messages: List[Dict[str, str]] = []
         self._max_messages = max_messages
         self.summary: str = ""
+        self.facts: str = ""
+        self.updated_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
     def add_user(self, content: str) -> None:
         self._messages.append({"role": "user", "content": content})
+        self.updated_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         self._trim()
 
     def add_assistant(self, content: str) -> None:
         self._messages.append({"role": "assistant", "content": content})
+        self.updated_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         self._trim()
 
     def clear(self) -> None:
         self._messages = []
         self.summary = ""
+        self.facts = ""
 
     def messages(self) -> List[Dict[str, str]]:
         return list(self._messages)
 
+    def clone(self, up_to_index: Optional[int] = None) -> "ChatSession":
+        """Creates a deep copy of the session. Optionally up to a specific message index."""
+        new_session = ChatSession(max_messages=self._max_messages)
+        if up_to_index != 0:
+            new_session.summary = self.summary
+            new_session.facts = self.facts
+        
+        if up_to_index is not None:
+            new_session._messages = list(self._messages[:up_to_index])
+        else:
+            new_session._messages = list(self._messages)
+        return new_session
     def load(self, path: str) -> None:
         if not path:
             return
@@ -44,6 +61,7 @@ class ChatSession:
             return
 
         self.summary = payload.get("summary", "")
+        self.updated_at = payload.get("updated_at", self.updated_at)
 
         messages = payload.get("messages", [])
         if isinstance(messages, list):
@@ -72,7 +90,7 @@ class ChatSession:
             "format_version": self._FORMAT_VERSION,
             "provider": provider or "",
             "model": model or "",
-            "updated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "updated_at": self.updated_at,
             "summary": self.summary,
             "messages": self.messages(),
         }

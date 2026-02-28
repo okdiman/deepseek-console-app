@@ -33,23 +33,29 @@ if _web_context_path:
     )
 
 _client = DeepSeekClient(_config)
-_session = ChatSession(max_messages=_config.context_max_messages)
+
+_sessions: Dict[str, ChatSession] = {
+    "default": ChatSession(max_messages=_config.context_max_messages)
+}
+_active_strategy: str = "default"
 
 _AGENT_REGISTRY = {
     "android": "Android Agent",
     "general": "General Agent",
 }
-_agents: Dict[str, AndroidAgent | GeneralAgent] = {
-    "android": AndroidAgent(_client, _session),
-    "general": GeneralAgent(_client, _session),
-}
+
+def get_agent(agent_id: str, session_id: str = "default") -> AndroidAgent | GeneralAgent:
+    session = get_session(session_id)
+    if agent_id == "android":
+        return AndroidAgent(_client, session)
+    return GeneralAgent(_client, session)
+
 _DEFAULT_AGENT_ID = "general"
 
 _session_cost_usd = 0.0
 
 if _config.persist_context:
-    _session.load(_config.context_path)
-
+    _sessions["default"].load(_config.context_path)
 
 def get_config() -> ClientConfig:
     return _config
@@ -59,9 +65,21 @@ def get_client() -> DeepSeekClient:
     return _client
 
 
-def get_session() -> ChatSession:
-    return _session
+def get_session(session_id: str = "default") -> ChatSession:
+    if session_id not in _sessions:
+        _sessions[session_id] = ChatSession(max_messages=_config.context_max_messages)
+    return _sessions[session_id]
 
+def get_all_sessions() -> Dict[str, ChatSession]:
+    return _sessions
+
+def create_branch(parent_id: str, message_index: int, new_branch_id: str) -> None:
+    parent_session = get_session(parent_id)
+    _sessions[new_branch_id] = parent_session.clone(up_to_index=message_index)
+
+def delete_session(session_id: str) -> None:
+    if session_id in _sessions:
+        del _sessions[session_id]
 
 def get_agent_registry() -> Dict[str, str]:
     return dict(_AGENT_REGISTRY)
@@ -73,10 +91,6 @@ def get_default_agent_id() -> str:
 
 def get_default_agent_name() -> str:
     return _AGENT_REGISTRY[_DEFAULT_AGENT_ID]
-
-
-def get_agent(agent_id: str) -> AndroidAgent | GeneralAgent:
-    return _agents.get(agent_id, _agents[_DEFAULT_AGENT_ID])
 
 
 def get_session_cost_usd() -> float:
