@@ -12,6 +12,7 @@ class ChatSession:
     def __init__(self, max_messages: int = 40) -> None:
         self._messages: List[Dict[str, str]] = []
         self._max_messages = max_messages
+        self.summary: str = ""
 
     def add_user(self, content: str) -> None:
         self._messages.append({"role": "user", "content": content})
@@ -23,6 +24,7 @@ class ChatSession:
 
     def clear(self) -> None:
         self._messages = []
+        self.summary = ""
 
     def messages(self) -> List[Dict[str, str]]:
         return list(self._messages)
@@ -38,7 +40,10 @@ class ChatSession:
             return
         except json.JSONDecodeError:
             self._messages = []
+            self.summary = ""
             return
+
+        self.summary = payload.get("summary", "")
 
         messages = payload.get("messages", [])
         if isinstance(messages, list):
@@ -68,6 +73,7 @@ class ChatSession:
             "provider": provider or "",
             "model": model or "",
             "updated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "summary": self.summary,
             "messages": self.messages(),
         }
 
@@ -79,3 +85,11 @@ class ChatSession:
     def _trim(self) -> None:
         if len(self._messages) > self._max_messages:
             self._messages = self._messages[-self._max_messages :]
+
+    def apply_compression(self, new_summary: str, keep_count: int) -> None:
+        """Applies a new summary and trims all but the newest `keep_count` messages."""
+        self.summary = new_summary
+        if keep_count > 0:
+            self._messages = self._messages[-keep_count:]
+        else:
+            self._messages = []

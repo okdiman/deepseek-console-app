@@ -3,10 +3,16 @@ from __future__ import annotations
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from .routes import router
 
 app = FastAPI(title="DeepSeek Web App")
+
+BASE_DIR = Path(__file__).parent.resolve()
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
 app.include_router(router)
 
 

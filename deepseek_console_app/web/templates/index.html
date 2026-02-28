@@ -20,7 +20,9 @@
       <form id="chatForm">
         <textarea id="message" placeholder="Напиши сообщение..."></textarea>
         <select id="agentSelect">
-          <option value="android" selected>{{ agent_name }}</option>
+          {% for id, name in agents.items() %}
+            <option value="{{ id }}" {% if id == default_agent_id %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
         </select>
         <button type="submit">Send</button>
       </form>

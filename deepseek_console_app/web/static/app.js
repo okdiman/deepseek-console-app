@@ -1,4 +1,3 @@
-/deepseek-console-app/deepseek_console_app/web/static/app.js
 // DeepSeek Web Chat — Client-side JS
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -9,6 +8,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusEl = document.getElementById("status");
   const statsEl = document.getElementById("stats");
   const clearBtn = document.getElementById("clearBtn");
+
+  // Initial scroll to bottom
+  chat.scrollTop = chat.scrollHeight;
 
   function addMessage(role, text, label) {
     const msg = document.createElement("div");
@@ -33,18 +35,18 @@ document.addEventListener("DOMContentLoaded", () => {
       const t = stats.tokens_local;
       parts.push(
         "Tokens (local): request=" +
-          t.request +
-          " (" +
-          t.request_method +
-          "), history=" +
-          t.history +
-          " (" +
-          t.history_method +
-          "), response=" +
-          t.response +
-          " (" +
-          t.response_method +
-          ")"
+        t.request +
+        " (" +
+        t.request_method +
+        "), history=" +
+        t.history +
+        " (" +
+        t.history_method +
+        "), response=" +
+        t.response +
+        " (" +
+        t.response_method +
+        ")"
       );
     }
     const usageParts = [];
@@ -67,13 +69,13 @@ document.addEventListener("DOMContentLoaded", () => {
     ) {
       parts.push(
         "Time: " +
-          duration +
-          " | Tokens: " +
-          usage +
-          " | Cost: " +
-          cost +
-          " | Session Cost: " +
-          sessionCost
+        duration +
+        " | Tokens: " +
+        usage +
+        " | Cost: " +
+        cost +
+        " | Session Cost: " +
+        sessionCost
       );
     }
     return parts.join(" | ");
@@ -92,6 +94,9 @@ document.addEventListener("DOMContentLoaded", () => {
     statusEl.textContent = "Streaming...";
     statsEl.textContent = "";
     statsEl.style.display = "none";
+
+    // Auto-scroll on submit action
+    chat.scrollTop = chat.scrollHeight;
 
     const agentId = agentSelect.value || "android";
     const url =
@@ -120,6 +125,8 @@ document.addEventListener("DOMContentLoaded", () => {
         statusEl.textContent = "Error: " + payload.error;
         source.close();
       }
+      // Keep scrolled to bottom during streaming
+      chat.scrollTop = chat.scrollHeight;
     };
 
     source.onerror = () => {
@@ -128,13 +135,26 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   });
 
-  clearBtn.addEventListener("click", async () => {
+  clearBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     const res = await fetch("/clear", { method: "POST" });
     if (res.ok) {
       chat.innerHTML = "";
       statusEl.textContent = "Context cleared.";
       statsEl.textContent = "";
       statsEl.style.display = "none";
+      chat.scrollTop = 0;
+    }
+  });
+
+  // Handle enter key in textarea to submit form but shift+enter makes new line
+  messageInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      // Find the submit button and click it to ensure all form logic triggers naturally
+      form.querySelector('button[type="submit"]').click();
     }
   });
 });
+

@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 from typing import Dict
 
-from ..core.android_agent import AndroidAgent
+from ..agents.android_agent import AndroidAgent
+from ..agents.general_agent import GeneralAgent
 from ..core.client import DeepSeekClient
 from ..core.config import ClientConfig, load_config
 from ..core.session import ChatSession
@@ -25,6 +26,9 @@ if _web_context_path:
         persist_context=_config.persist_context,
         context_path=os.path.expanduser(_web_context_path),
         context_max_messages=_config.context_max_messages,
+        compression_enabled=_config.compression_enabled,
+        compression_threshold=_config.compression_threshold,
+        compression_keep=_config.compression_keep,
         optional_params=_config.optional_params,
     )
 
@@ -33,9 +37,11 @@ _session = ChatSession(max_messages=_config.context_max_messages)
 
 _AGENT_REGISTRY = {
     "android": "Android Agent",
+    "general": "General Agent",
 }
-_agents: Dict[str, AndroidAgent] = {
+_agents: Dict[str, AndroidAgent | GeneralAgent] = {
     "android": AndroidAgent(_client, _session),
+    "general": GeneralAgent(_client, _session),
 }
 _DEFAULT_AGENT_ID = "android"
 
@@ -69,7 +75,7 @@ def get_default_agent_name() -> str:
     return _AGENT_REGISTRY[_DEFAULT_AGENT_ID]
 
 
-def get_agent(agent_id: str) -> AndroidAgent:
+def get_agent(agent_id: str) -> AndroidAgent | GeneralAgent:
     return _agents.get(agent_id, _agents[_DEFAULT_AGENT_ID])
 
 

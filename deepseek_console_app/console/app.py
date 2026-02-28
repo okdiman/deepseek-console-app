@@ -1,6 +1,6 @@
 import aiohttp
 
-from ..core.android_agent import AndroidAgent
+from ..agents.android_agent import AndroidAgent
 from ..core.client import DeepSeekClient
 from ..core.session import ChatSession
 from ..core.stream_printer import StreamPrinter

@@ -35,6 +35,9 @@ class ClientConfig:
     persist_context: bool
     context_path: str
     context_max_messages: int
+    compression_enabled: bool
+    compression_threshold: int
+    compression_keep: int
     optional_params: OptionalRequestParams = field(
         default_factory=OptionalRequestParams
     )
@@ -94,6 +97,11 @@ def load_config() -> ClientConfig:
     )
     context_max_messages = int(os.getenv("DEEPSEEK_CONTEXT_MAX_MESSAGES", "40"))
 
+    compression_enabled_raw = os.getenv("DEEPSEEK_COMPRESSION_ENABLED", "false").strip().lower()
+    compression_enabled = compression_enabled_raw not in {"0", "false", "no", "off"}
+    compression_threshold = int(os.getenv("DEEPSEEK_COMPRESSION_THRESHOLD", "10"))
+    compression_keep = int(os.getenv("DEEPSEEK_COMPRESSION_KEEP", "4"))
+
     print(f"ℹ️  provider: {provider}")
     print(f"ℹ️  model: {model}")
     print(f"ℹ️  temperature: {optional_params.temperature}")
@@ -111,5 +119,8 @@ def load_config() -> ClientConfig:
         persist_context=persist_context,
         context_path=context_path,
         context_max_messages=context_max_messages,
+        compression_enabled=compression_enabled,
+        compression_threshold=compression_threshold,
+        compression_keep=compression_keep,
         optional_params=optional_params,
     )

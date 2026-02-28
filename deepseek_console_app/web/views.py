@@ -48,9 +48,13 @@ def render_index(request: Optional[Request] = None) -> str:
     """
     Render the index page using Jinja2 template.
     """
+    from .state import get_agent_registry, get_default_agent_id
+    
     session = get_session()
     agent_name = get_default_agent_name()
     rendered_messages = render_messages(session.messages(), agent_name)
+    agents = get_agent_registry()
+    default_agent_id = get_default_agent_id()
     # If request is not provided, create a dummy one for template rendering
     if request is None:
         from starlette.datastructures import URL, Headers, QueryParams
@@ -75,5 +79,7 @@ def render_index(request: Optional[Request] = None) -> str:
     return templates.get_template("index.html").render(
         request=request,
         rendered_messages=rendered_messages,
+        agents=agents,
+        default_agent_id=default_agent_id,
         agent_name=agent_name,
     )
