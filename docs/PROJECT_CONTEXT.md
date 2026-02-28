@@ -37,8 +37,9 @@ Console app for streaming chat with DeepSeek Chat Completions API, using an Andr
 - `deepseek_console_app/web/templates/` — HTML templates
 - `deepseek_console_app/core/config.py` — config + optional params (code-only)
 - `deepseek_console_app/core/client.py` — streaming HTTP client
-- `deepseek_console_app/core/android_agent.py` — Android-focused agent + system prompt
-- `deepseek_console_app/core/session.py` — message history
+- `deepseek_console_app/agents/android_agent.py` — Android-focused agent + system prompt
+- `deepseek_console_app/agents/general_agent.py` — General-purpose agent
+- `deepseek_console_app/core/session.py` — message history (with compression support)
 - `deepseek_console_app/core/stream_printer.py` — stall indicator
 - `deepseek_console_app/core/comparing/model_compare.py` — сравнение ответов разных моделей
 
@@ -71,6 +72,11 @@ Context persistence:
 - `DEEPSEEK_WEB_CONTEXT_PATH` (optional override for web UI)
 - `DEEPSEEK_CONTEXT_MAX_MESSAGES` (default 40)
 
+Context compression:
+- `DEEPSEEK_COMPRESSION_ENABLED` (default `true`)
+- `DEEPSEEK_COMPRESSION_THRESHOLD` (default 10)
+- `DEEPSEEK_COMPRESSION_KEEP` (default 4)
+
 ## OptionalRequestParams (code-only)
 Edit defaults in `deepseek_console_app/core/config.py`:
 `temperature`, `frequency_penalty`, `presence_penalty`, `response_format`, `stop`, `thinking`
@@ -80,7 +86,8 @@ Edit defaults in `deepseek_console_app/core/config.py`:
 - Web UI streams via SSE at `/stream`.
 - Web UI has an agent selector and shows the active agent name in responses.
 - Web UI shows a stats panel with local tokens, API usage, cost, and session cost (auto-hides when empty).
-- `AndroidAgent` injects an Android-focused `system` prompt for senior Android guidance.
+- `AndroidAgent` injects an Android-focused `system` prompt, `GeneralAgent` is for general conversation.
+- If conversation history exceeds `DEEPSEEK_COMPRESSION_THRESHOLD`, older messages are compressed into a `summary` to save tokens.
 - Local token counting is shown in the CLI: request, full history, and response (uses `tiktoken` if available, otherwise a heuristic).
 - API usage tokens (prompt/completion/total) are shown when provided by the provider.
 - If context length is exceeded, the client raises a clear `Context length exceeded` error.
@@ -112,6 +119,7 @@ Structure:
   "provider": "deepseek",
   "model": "deepseek-chat",
   "updated_at": "2025-01-01T12:00:00Z",
+  "summary": "This is a summary of older compressed messages.",
   "messages": [
     {"role": "user", "content": "Привет"},
     {"role": "assistant", "content": "Привет! Чем помочь?"}

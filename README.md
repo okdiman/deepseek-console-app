@@ -17,8 +17,11 @@ Project structure (main code is now in packages):
 ```/dev/null/tree#L1-17
 deepseek-console-app/
   deepseek_console_app/
-    core/
+    agents/
+      __init__.py
       android_agent.py
+      general_agent.py
+    core/
       client.py
       config.py
       session.py
@@ -72,6 +75,11 @@ DeepSeek:
 - `DEEPSEEK_API_URL` — API URL (default `https://api.deepseek.com/v1/chat/completions`)
 - `DEEPSEEK_MODELS_URL` — models endpoint for `/models` (optional)
 - `DEEPSEEK_WEB_CONTEXT_PATH` — optional override for web UI context path
+
+Context Compression:
+- `DEEPSEEK_COMPRESSION_ENABLED` — enable/disable context compression (default `true`)
+- `DEEPSEEK_COMPRESSION_THRESHOLD` — messages before triggering compression (default `10`)
+- `DEEPSEEK_COMPRESSION_KEEP` — newest messages to keep raw after compression (default `4`)
 
 Groq:
 - `GROQ_API_KEY` — **required** when `PROVIDER=groq`
