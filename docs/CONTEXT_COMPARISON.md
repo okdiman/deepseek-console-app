@@ -1,50 +1,50 @@
-# Context Management Strategies Comparison (Real Benchmark)
+# Сравнение Стратегий Управления Контекстом (Реальный Бенчмарк)
 
-This report details the behavior, stability, and token consumption of the four different context management strategies implemented in the `GeneralAgent`. 
-The test scenario involved a Python script feeding 15 sequential details about a custom application to the DeepSeek API, ending with a test question: *"What is the name, primary color, frontend framework, and backend framework of the app we are building?"*
+Этот отчет подробно описывает поведение, стабильность и потребление токенов четырех различных стратегий управления контекстом, реализованных в `GeneralAgent`. 
+Тестовый сценарий представлял собой Python-скрипт, отправляющий 15 последовательных деталей о кастомном приложении в DeepSeek API, завершаясь контрольным вопросом: *"Какое название, основной цвет, фронтенд-фреймворк и бэкенд-фреймворк у приложения, которое мы создаем?"*
 
-## Benchmark Methodology
-- **LLM**: `deepseek-chat`
-- **Messages**: 15 requests per strategy
-- **Scenario**: App is called "TaskMaster" (msg 1), color is "#FF5733" (msg 3), Frontend React Native (msg 2), Backend Node.js (msg 6).
+## Методология Бенчмарка
+- **Модель**: `deepseek-chat`
+- **Количество сообщений**: 15 запросов на каждую стратегию
+- **Сценарий**: Приложение называется "TaskMaster" (сообщение 1), цвет "#FF5733" (сообщение 3), фронтенд React Native (сообщение 2), бэкенд Node.js (сообщение 6).
 
 ---
 
-### Strategy 1: Default Compression
-**Mechanism**: Retains a rolling summarized history combined with the latest literal messages.
+### Стратегия 1: Default Compression (Дефолтное Сжатие)
+**Механизм**: Сохраняет скользящее сжатое резюме (summary) истории в сочетании с последними точными сообщениями.
 
-- **Total Time**: `914.98 seconds`
-- **Prompt Tokens**: `82,512`
-- **Completion Tokens**: `42,168`
-- **Test Passed?**: **Yes**. The agent successfully retrieved the name "TaskMaster", color "#FF5733", React Native, and Node.js.
-- **Analysis**: The rolling summary effectively preserved the early details (like the exact color code) while aggressively shrinking the active prompt size compared to raw history.
+- **Общее время**: `914.98 секунд`
+- **Промпт-токены**: `82,512`
+- **Токены генерации**: `42,168`
+- **Тест пройден?**: **Да**. Агент успешно вспомнил название "TaskMaster", цвет "#FF5733", React Native и Node.js.
+- **Анализ**: Скользящее резюме эффективно сохранило ранние детали (например, точный код цвета) и при этом агрессивно уменьшило размер активного промпта по сравнению с отправкой сырой истории.
 
-### Strategy 2: Sliding Window
-**Mechanism**: Hard-cuts the history to only the last 10 messages. No summarization.
+### Стратегия 2: Sliding Window (Скользящее Окно)
+**Механизм**: Жестко обрезает историю, оставляя только 10 последних сообщений. Без суммаризации.
 
-- **Total Time**: `941.15 seconds`
-- **Prompt Tokens**: `166,729` (Surprisingly higher than Default!)
-- **Completion Tokens**: `41,212`
-- **Test Passed?**: **No**. The agent hallucinated older facts. It guessed the name "TaskMaster" (likely luck or internal training data interpolation), but hallucinated the primary color as `#34C759` (Green) instead of `#FF5733` because the true color was in message #3, which was dropped from the 10-message window.
-- **Analysis**: While simple, sending 10 full uncompressed messages actually consumes *more* prompt tokens than sending 4 messages + 1 compact summary. It also definitively suffers from amnesia for early constraints.
+- **Общее время**: `941.15 секунд`
+- **Промпт-токены**: `166,729` (На удивление больше, чем у Дефолта!)
+- **Токены генерации**: `41,212`
+- **Тест пройден?**: **Нет**. Агент сгаллюцинировал старые факты. Он угадал название "TaskMaster" (вероятно, повезло или модель догадалась из контекста), но ошибся с основным цветом, назвав `#34C759` (Зеленый) вместо `#FF5733`, потому что настоящий цвет был в сообщении №3, которое выпало из 10-сообщений окна.
+- **Анализ**: На первый взгляд простая, но отправка 10 полных несжатых сообщений на самом деле потребляет *больше* токенов промпта, чем отправка 4 сообщений + 1 компактного summary. Очевидно, страдает амнезией на ранние ограничения.
 
-### Strategy 3: Sticky Facts (Key-Value Memory)
-**Mechanism**: On every user message, a background API call extracts core decisions and appends them to a persistent `session.facts` text injected into the system prompt.
+### Стратегия 3: Sticky Facts (Фиксированные Факты / Ключ-Значение)
+**Механизм**: На каждое сообщение пользователя фоновый вызов API извлекает ключевые решения и добавляет их в постоянный текст `session.facts`, который подмешивается в системный промпт.
 
-- **Total Time**: `1,192.57 seconds` 
-- **Prompt Tokens**: `212,630`
-- **Completion Tokens**: `49,335`
-- **Test Passed?**: **Yes**. Flawless recall.
-- **Analysis**: Achieved the highest quality of strict fact retention, actively declaring `*[System: Извлекаю и обновляю факты...]*`. However, doing a secondary LLM extraction on *every* message makes it the most expensive (~2.5x more prompt tokens than Default) and the slowest strategy by far.
+- **Общее время**: `1,192.57 секунд` 
+- **Промпт-токены**: `212,630`
+- **Токены генерации**: `49,335`
+- **Тест пройден?**: **Да**. Безупречное запоминание.
+- **Анализ**: Достигнуто наивысшее качество строгого запоминания фактов (в интерфейсе отображается как `*[System: Извлекаю и обновляю факты...]*`). Однако, вторичная работа LLM над *каждым* сообщением делает эту стратегию самой дорогой (~в 2.5 раза больше токенов промпта, чем у Дефолта) и самой медленной.
 
-### Strategy 4: Branching
-**Mechanism**: Deep-clones the conversation state to create a parallel timeline, using Default Compression under the hood.
+### Стратегия 4: Branching (Ветвление)
+**Механизм**: Глубоко клонирует состояние диалога для создания параллельного таймлайна, используя `Default Compression` под капотом.
 
-- **Total Time**: `764.12 seconds`
-- **Prompt Tokens**: `36,765`
-- **Completion Tokens**: `29,150`
-- **Test Passed?**: **Yes**. 
-- **Analysis**: Branching inherently performs exactly like Default Compression within its own timeline, but because it isolates histories, it prevents context pollution. The token count here was lowest due to API caching/variances during the benchmark run, but mechanically it mirrors Default.
+- **Общее время**: `764.12 секунд`
+- **Промпт-токены**: `36,765`
+- **Токены генерации**: `29,150`
+- **Тест пройден?**: **Да**. 
+- **Анализ**: Ветвление по своей природе работает точно так же, как Default Compression внутри своего собственного таймлайна, но благодаря изоляции предотвращает загрязнение основного контекста (Context Pollution). Количество токенов в тесте оказалось самым низким из-за кэширования API (DeepSeek Prompt Caching), но механически затраты идентичны Дефолтной стратегии.
 
 ---
 
