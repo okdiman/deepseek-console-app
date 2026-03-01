@@ -40,7 +40,7 @@
 
 ## Code Organization Rules
 - **No logic in `main.py` (root)** beyond bootstrapping.
-- `deepseek_console_app/main.py` orchestrates assembly.
+- `deepseek_chat/main.py` orchestrates assembly.
 - Keep cross-module imports **minimal and explicit**.
 
 ## Naming & Style

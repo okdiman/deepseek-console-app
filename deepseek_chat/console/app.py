@@ -17,7 +17,7 @@ class ConsoleApp:
 
     def print_welcome(self) -> None:
         print("=" * 60)
-        print("🚀 DeepSeek Console Application")
+        print("🚀 DeepSeek Chat")
         print("=" * 60)
         print("Commands:")
         print("- Type any question to get AI response")

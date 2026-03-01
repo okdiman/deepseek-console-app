@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import asyncio
 
-from deepseek_console_app.console.app import ConsoleApp
-from deepseek_console_app.core.android_agent import AndroidAgent
-from deepseek_console_app.core.client import DeepSeekClient
-from deepseek_console_app.core.config import load_config
-from deepseek_console_app.core.session import ChatSession
+from deepseek_chat.console.app import ConsoleApp
+from deepseek_chat.core.android_agent import AndroidAgent
+from deepseek_chat.core.client import DeepSeekClient
+from deepseek_chat.core.config import load_config
+from deepseek_chat.core.session import ChatSession
 
 
 async def main() -> None:

@@ -6,13 +6,13 @@ Architecture guidelines: `docs/ARCHITECTURE.md`
 Console app for streaming chat with DeepSeek Chat Completions API, using an Android-focused agent.
 
 ## Web UI Structure (after refactor)
-- `deepseek_console_app/web/app.py` — FastAPI app, wires router
-- `deepseek_console_app/web/routes.py` — HTTP routes (`/`, `/clear`, `/stream`)
-- `deepseek_console_app/web/views.py` — HTML rendering (now minimal, uses templates)
-- `deepseek_console_app/web/state.py` — shared state/config/session/agent
-- `deepseek_console_app/web/streaming.py` — SSE streaming helpers
-- `deepseek_console_app/web/static/` — static files (JS, CSS)
-- `deepseek_console_app/web/templates/` — HTML templates (index.html)
+- `deepseek_chat/web/app.py` — FastAPI app, wires router
+- `deepseek_chat/web/routes.py` — HTTP routes (`/`, `/clear`, `/stream`)
+- `deepseek_chat/web/views.py` — HTML rendering (now minimal, uses templates)
+- `deepseek_chat/web/state.py` — shared state/config/session/agent
+- `deepseek_chat/web/streaming.py` — SSE streaming helpers
+- `deepseek_chat/web/static/` — static files (JS, CSS)
+- `deepseek_chat/web/templates/` — HTML templates (index.html)
 
 ## How static/templates are used
 - CSS and JS are now in `web/static/` (e.g. `style.css`, `app.js`)
@@ -21,27 +21,27 @@ Console app for streaming chat with DeepSeek Chat Completions API, using an Andr
 
 
 ## Run
-- `python3 -m deepseek_console_app.console.main`  
-- Web UI: `python3 -m deepseek_console_app.web.app` (opens http://127.0.0.1:8000)
+- `python3 -m deepseek_chat.console.main`  
+- Web UI: `python3 -m deepseek_chat.web.app` (opens http://127.0.0.1:8000)
 - Clean run: `chmod +x scripts/run_clean.sh && ./scripts/run_clean.sh`
 
 ## Key Files
-- `deepseek_console_app/console/main.py` — console app bootstrap
-- `deepseek_console_app/console/app.py` — CLI loop
-- `deepseek_console_app/web/app.py` — FastAPI app
-- `deepseek_console_app/web/routes.py` — web routes
-- `deepseek_console_app/web/views.py` — HTML rendering
-- `deepseek_console_app/web/state.py` — web state/config/session/agent
-- `deepseek_console_app/web/streaming.py` — SSE streaming
-- `deepseek_console_app/web/static/` — static files (JS, CSS)
-- `deepseek_console_app/web/templates/` — HTML templates
-- `deepseek_console_app/core/config.py` — config + optional params (code-only)
-- `deepseek_console_app/core/client.py` — streaming HTTP client
-- `deepseek_console_app/agents/android_agent.py` — Android-focused agent + system prompt
-- `deepseek_console_app/agents/general_agent.py` — General-purpose agent
-- `deepseek_console_app/core/session.py` — message history (with compression support)
-- `deepseek_console_app/core/stream_printer.py` — stall indicator
-- `deepseek_console_app/core/comparing/model_compare.py` — сравнение ответов разных моделей
+- `deepseek_chat/console/main.py` — console app bootstrap
+- `deepseek_chat/console/app.py` — CLI loop
+- `deepseek_chat/web/app.py` — FastAPI app
+- `deepseek_chat/web/routes.py` — web routes
+- `deepseek_chat/web/views.py` — HTML rendering
+- `deepseek_chat/web/state.py` — web state/config/session/agent
+- `deepseek_chat/web/streaming.py` — SSE streaming
+- `deepseek_chat/web/static/` — static files (JS, CSS)
+- `deepseek_chat/web/templates/` — HTML templates
+- `deepseek_chat/core/config.py` — config + optional params (code-only)
+- `deepseek_chat/core/client.py` — streaming HTTP client
+- `deepseek_chat/agents/android_agent.py` — Android-focused agent + system prompt
+- `deepseek_chat/agents/general_agent.py` — General-purpose agent
+- `deepseek_chat/core/session.py` — message history (with compression support)
+- `deepseek_chat/core/stream_printer.py` — stall indicator
+- `deepseek_chat/core/comparing/model_compare.py` — сравнение ответов разных моделей
 
 ## Config (env)
 Provider selection:
@@ -68,7 +68,7 @@ Groq:
 
 Context persistence:
 - `DEEPSEEK_PERSIST_CONTEXT` (default `true`)
-- `DEEPSEEK_CONTEXT_PATH` (default `~/.deepseek_console_app/context.json`)
+- `DEEPSEEK_CONTEXT_PATH` (default `~/.deepseek_chat/context.json`)
 - `DEEPSEEK_WEB_CONTEXT_PATH` (optional override for web UI)
 - `DEEPSEEK_CONTEXT_MAX_MESSAGES` (default 40)
 
@@ -78,7 +78,7 @@ Context compression:
 - `DEEPSEEK_COMPRESSION_KEEP` (default 4)
 
 ## OptionalRequestParams (code-only)
-Edit defaults in `deepseek_console_app/core/config.py`:
+Edit defaults in `deepseek_chat/core/config.py`:
 `temperature`, `frequency_penalty`, `presence_penalty`, `response_format`, `stop`, `thinking`
 
 ## Notes
@@ -101,14 +101,14 @@ Edit defaults in `deepseek_console_app/core/config.py`:
 - `/clear` clears chat context (and overwrites persisted context if enabled).
 - `/context` shows chat history size.
 - Persisted context loads on startup when `DEEPSEEK_PERSIST_CONTEXT=true`.
-- `python3 -m deepseek_console_app.core.comparing.model_compare --prompt "..."` — сравнивает Llama-3.1-8B (weak), Llama-3.1-70B (medium) и DeepSeek (API).
+- `python3 -m deepseek_chat.core.comparing.model_compare --prompt "..."` — сравнивает Llama-3.1-8B (weak), Llama-3.1-70B (medium) и DeepSeek (API).
 - If behavior seems stale, run clean script (removes `__pycache__`).
 
 ## Web UI Static/Templates Example
 
-- CSS: `deepseek_console_app/web/static/style.css`
-- JS: `deepseek_console_app/web/static/app.js`
-- HTML: `deepseek_console_app/web/templates/index.html`
+- CSS: `deepseek_chat/web/static/style.css`
+- JS: `deepseek_chat/web/static/app.js`
+- HTML: `deepseek_chat/web/templates/index.html`
 - FastAPI serves static files and renders template via Jinja2
 
 
@@ -117,7 +117,7 @@ Edit defaults in `deepseek_console_app/core/config.py`:
 After any code changes, verify `PROJECT_CONTEXT.md` and update it if needed.
 
 ## Persisted Context File (format)
-Default path: `~/.deepseek_console_app/context.json`
+Default path: `~/.deepseek_chat/context.json`
 Structure:
 {
   "format_version": 1,

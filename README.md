@@ -1,12 +1,12 @@
-# 🚀 DeepSeek Console Application
+# 🚀 DeepSeek Chat
 
 A simple console app to chat with DeepSeek AI via the API (with streaming responses).
 
 ## Quick Start
 
 ```/dev/null/shell#L1-6
-git clone https://github.com/okdiman/deepseek-console-app.git
-cd deepseek-console-app
+git clone https://github.com/okdiman/deepseek-chat.git
+cd deepseek-chat
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -15,8 +15,8 @@ cp .env.example .env
 
 Project structure (main code is now in packages):
 ```/dev/null/tree#L1-17
-deepseek-console-app/
-  deepseek_console_app/
+deepseek-chat/
+  deepseek_chat/
     agents/
       __init__.py
       android_agent.py
@@ -47,9 +47,9 @@ Run:
 
 ```/dev/null/shell#L1-5
 # console
-python3 -m deepseek_console_app.console.main
+python3 -m deepseek_chat.console.main
 # web UI
-python3 -m deepseek_console_app.web.app
+python3 -m deepseek_chat.web.app
 ```
 
 Clean run (removes `__pycache__` and disables bytecode caching):
@@ -91,8 +91,8 @@ Groq:
 
 ## OptionalRequestParams
 
-Optional request parameters live in `deepseek_console_app/core/config.py` inside the `OptionalRequestParams` dataclass.  
-These are wired into the request payload in `deepseek_console_app/core/client.py`.
+Optional request parameters live in `deepseek_chat/core/config.py` inside the `OptionalRequestParams` dataclass.  
+These are wired into the request payload in `deepseek_chat/core/client.py`.
 
 You can tweak:
 
@@ -110,7 +110,7 @@ Edit the defaults directly in `OptionalRequestParams` to experiment with behavio
 Run:
 
 ```/dev/null/shell#L1-1
-python3 -m deepseek_console_app.web.app
+python3 -m deepseek_chat.web.app
 ```
 
 Notes:
@@ -132,7 +132,7 @@ Notes:
 Run:
 
 ```/dev/null/shell#L1-1
-python3 -m deepseek_console_app.core.comparing.model_compare --prompt "..."
+python3 -m deepseek_chat.core.comparing.model_compare --prompt "..."
 ```
 
 
@@ -140,7 +140,7 @@ python3 -m deepseek_console_app.core.comparing.model_compare --prompt "..."
 
 ```/dev/null/console#L1-14
 ============================================================
-🚀 DeepSeek Console Application
+🚀 DeepSeek Chat
 ============================================================
 Commands:
 - Type any question to get AI response

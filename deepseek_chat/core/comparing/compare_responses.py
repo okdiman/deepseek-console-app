@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, TypedDict
 
 import aiohttp
 
-from deepseek_console_app.core.config import ClientConfig, load_config
+from deepseek_chat.core.config import ClientConfig, load_config
 
 
 class ApiResult(TypedDict, total=False):
