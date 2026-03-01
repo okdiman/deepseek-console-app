@@ -114,7 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
           currentSessionId = newId;
           await loadSessions();
           await loadHistory(newId);
-          strategySelect.value = "branching"; // Auto-switch to branching on branch creation
           toggleBranchButtons();
         } else {
           alert("Failed to create branch.");
@@ -132,7 +131,6 @@ document.addEventListener("DOMContentLoaded", () => {
         currentSessionId = newId;
         await loadSessions();
         await loadHistory(newId);
-        strategySelect.value = "branching";
         toggleBranchButtons();
       } else {
         alert("Failed to create new session.");
@@ -141,9 +139,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function toggleBranchButtons() {
-    const isBranching = strategySelect.value === "branching";
+    const isGeneral = agentSelect.value === "general";
     document.querySelectorAll(".branch-btn").forEach(btn => {
-      btn.style.display = isBranching ? "inline-block" : "none";
+      btn.style.display = isGeneral ? "inline-block" : "none";
     });
   }
 
@@ -196,7 +194,7 @@ document.addEventListener("DOMContentLoaded", () => {
       branchBtn.style.marginLeft = "8px";
       branchBtn.style.cursor = "pointer";
       branchBtn.textContent = "Branch";
-      branchBtn.style.display = strategySelect.value === "branching" ? "inline-block" : "none";
+      branchBtn.style.display = agentSelect.value === "general" ? "inline-block" : "none";
       meta.appendChild(branchBtn);
     }
 
