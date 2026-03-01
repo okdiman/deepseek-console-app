@@ -5,7 +5,13 @@
   <meta charset="utf-8" />
   <title>DeepSeek Web Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="/static/style.css?v=2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <link rel="stylesheet" href="/static/style.css?v=5">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 
 <body>
@@ -22,7 +28,10 @@
     <div class="container main-content">
       <div class="toolbar">
         <h1>DeepSeek Web Chat (Streaming)</h1>
-        <button id="clearBtn" type="button">Clear</button>
+        <div class="toolbar-actions">
+          <button id="settingsBtn" type="button" class="icon-btn" title="Settings">⚙️</button>
+          <button id="clearBtn" type="button">Clear</button>
+        </div>
       </div>
       <div id="chat">
         {{ rendered_messages|safe }}
@@ -30,25 +39,73 @@
       <div class="stats" id="stats"></div>
       <div class="footer">
         <form id="chatForm">
-          <textarea id="message" placeholder="Напиши сообщение..."></textarea>
-          <select id="strategySelect">
-            <option value="default">Context Compression</option>
-            <option value="window">Sliding Window</option>
-            <option value="facts">Sticky Facts</option>
-          </select>
-          <select id="agentSelect">
-            {% for id, name in agents.items() %}
-            <option value="{{ id }}" {% if id==default_agent_id %}selected{% endif %}>{{ name }}</option>
-            {% endfor %}
-          </select>
-          <button type="submit">Send</button>
+          <div class="input-capsule">
+            <textarea id="message" placeholder="Message DeepSeek..." rows="1"></textarea>
+            <div class="capsule-actions">
+              <button id="submitBtn" type="submit" class="action-btn" title="Send">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+              <button id="stopBtn" type="button" class="action-btn stop" title="Stop" style="display:none;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <rect x="9" y="9" width="6" height="6"></rect>
+                </svg>
+              </button>
+            </div>
+          </div>
         </form>
         <div class="status" id="status"></div>
       </div>
     </div>
   </div>
 
-  <script src="/static/app.js?v=5"></script>
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" id="closeSettings">&times;</span>
+      <h2>Settings</h2>
+
+      <div class="setting-group">
+        <label for="agentSelect">Agent Model</label>
+        <select id="agentSelect" class="form-select">
+          {% for id, name in agents.items() %}
+          <option value="{{ id }}" {% if id==default_agent_id %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="setting-group" id="strategyGroup">
+        <label for="strategySelect">Context Strategy</label>
+        <select id="strategySelect" class="form-select">
+          <option value="default">Context Compression</option>
+          <option value="window">Sliding Window</option>
+          <option value="facts">Sticky Facts</option>
+        </select>
+      </div>
+
+      <div class="setting-group">
+        <label>Temperature <span id="temperatureVal">Default</span></label>
+        <input type="range" id="temperatureSlider" min="0" max="2" step="0.1" value="1">
+        <small>Lower = more deterministic, Higher = more creative</small>
+      </div>
+      <div class="setting-group">
+        <label for="topPSlider">Top P: <span id="topPVal">Default</span></label>
+        <input type="range" id="topPSlider" min="0" max="1" step="0.05" value="1">
+        <small>Nucleus sampling probability</small>
+      </div>
+      <div class="modal-actions">
+        <button id="resetSettingsBtn" class="secondary-btn" type="button">Use Defaults</button>
+        <button id="saveSettingsBtn" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=6"></script>
 </body>
 
 </html>

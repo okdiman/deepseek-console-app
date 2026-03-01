@@ -2,6 +2,34 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   const chat = document.getElementById("chat");
+
+  marked.setOptions({
+    highlight: function (code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    }
+  });
+
+  function addCopyButtons(container) {
+    const blocks = container.querySelectorAll("pre code");
+    blocks.forEach((block) => {
+      const pre = block.parentNode;
+      if (pre.querySelector(".copy-btn")) return;
+
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.textContent = "Copy";
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(block.textContent);
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => copyBtn.textContent = "Copy", 2000);
+      });
+      pre.style.position = "relative";
+      pre.appendChild(copyBtn);
+    });
+  }
   const form = document.getElementById("chatForm");
   const messageInput = document.getElementById("message");
   const agentSelect = document.getElementById("agentSelect");
@@ -9,6 +37,101 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusEl = document.getElementById("status");
   const statsEl = document.getElementById("stats");
   const clearBtn = document.getElementById("clearBtn");
+
+  // Settings Modal elements
+  const settingsBtn = document.getElementById("settingsBtn");
+  const settingsModal = document.getElementById("settingsModal");
+  const closeSettings = document.getElementById("closeSettings");
+  const temperatureSlider = document.getElementById("temperatureSlider");
+  const temperatureVal = document.getElementById("temperatureVal");
+  const topPSlider = document.getElementById("topPSlider");
+  const topPVal = document.getElementById("topPVal");
+  const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+  const resetSettingsBtn = document.getElementById("resetSettingsBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const submitBtn = document.getElementById("submitBtn");
+
+  let currentSource = null;
+
+  let customSettings = {
+    temperature: null,
+    top_p: null,
+    agent: "general",
+    strategy: "default"
+  };
+
+  function loadSettings() {
+    const saved = localStorage.getItem("deepseek_settings");
+    if (saved) {
+      try { customSettings = Object.assign(customSettings, JSON.parse(saved)); } catch (e) { }
+    }
+    // Sync the selects visually with loaded settings if setting exists
+    if (customSettings.agent) {
+      agentSelect.value = customSettings.agent;
+    }
+    if (customSettings.strategy) {
+      strategySelect.value = customSettings.strategy;
+    }
+  }
+  loadSettings();
+
+  function updateSettingsUI() {
+    if (customSettings.temperature !== null) {
+      temperatureSlider.value = customSettings.temperature;
+      temperatureVal.textContent = customSettings.temperature;
+    } else {
+      temperatureSlider.value = 1;
+      temperatureVal.textContent = "Default";
+    }
+    if (customSettings.top_p !== null) {
+      topPSlider.value = customSettings.top_p;
+      topPVal.textContent = customSettings.top_p;
+    } else {
+      topPSlider.value = 1;
+      topPVal.textContent = "Default";
+    }
+  }
+
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      updateSettingsUI();
+      settingsModal.style.display = "block";
+    });
+  }
+
+  if (closeSettings) {
+    closeSettings.addEventListener("click", () => {
+      settingsModal.style.display = "none";
+    });
+  }
+
+  temperatureSlider.addEventListener("input", (e) => {
+    temperatureVal.textContent = e.target.value;
+  });
+  topPSlider.addEventListener("input", (e) => {
+    topPVal.textContent = e.target.value;
+  });
+
+  saveSettingsBtn.addEventListener("click", () => {
+    customSettings.temperature = parseFloat(temperatureSlider.value);
+    customSettings.top_p = parseFloat(topPSlider.value);
+    customSettings.agent = agentSelect.value;
+    customSettings.strategy = strategySelect.value;
+    localStorage.setItem("deepseek_settings", JSON.stringify(customSettings));
+    settingsModal.style.display = "none";
+
+    // We update UI dependencies if agent changes
+    toggleStrategyControls();
+  });
+
+  resetSettingsBtn.addEventListener("click", () => {
+    customSettings = { temperature: null, top_p: null, agent: "general", strategy: "default" };
+    localStorage.removeItem("deepseek_settings");
+    agentSelect.value = customSettings.agent;
+    strategySelect.value = customSettings.strategy;
+    updateSettingsUI();
+    toggleStrategyControls();
+  });
 
   chat.scrollTop = chat.scrollHeight;
 
@@ -141,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function toggleBranchButtons() {
     const isGeneral = agentSelect.value === "general";
     document.querySelectorAll(".branch-btn").forEach(btn => {
-      btn.style.display = isGeneral ? "inline-block" : "none";
+      btn.style.display = isGeneral ? "" : "none";
     });
   }
 
@@ -182,28 +305,37 @@ document.addEventListener("DOMContentLoaded", () => {
       msg.setAttribute("data-msg-id", idx);
     }
 
+    const msgInner = document.createElement("div");
+    msgInner.className = "msg-inner";
+
     const meta = document.createElement("div");
     meta.className = "meta";
-    meta.textContent = label || (role === "user" ? "You" : "Assistant");
+
+    const labelSpan = document.createElement("span");
+    labelSpan.textContent = label || (role === "user" ? "You" : "Assistant");
+    meta.appendChild(labelSpan);
 
     if (role !== "system") {
       const branchBtn = document.createElement("button");
       branchBtn.className = "branch-btn";
       branchBtn.title = "Branch from here";
-      branchBtn.style.fontSize = "0.7em";
-      branchBtn.style.marginLeft = "8px";
-      branchBtn.style.cursor = "pointer";
-      branchBtn.textContent = "Branch";
-      branchBtn.style.display = agentSelect.value === "general" ? "inline-block" : "none";
+      branchBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>';
+      branchBtn.style.display = agentSelect.value === "general" ? "" : "none";
       meta.appendChild(branchBtn);
     }
 
-    const content = document.createElement("div");
-    content.className = "content";
-    content.textContent = text || "";
+    msgInner.appendChild(meta);
 
-    msg.appendChild(meta);
-    msg.appendChild(content);
+    const content = document.createElement("div");
+    content.className = "content markdown-body";
+    content._rawText = text || "";
+    if (text) {
+      content.innerHTML = marked.parse(content._rawText);
+      addCopyButtons(content);
+    }
+    msgInner.appendChild(content);
+
+    msg.appendChild(msgInner);
     chat.appendChild(msg);
     chat.scrollTop = chat.scrollHeight;
 
@@ -274,17 +406,18 @@ document.addEventListener("DOMContentLoaded", () => {
       agentSelect.options[agentSelect.selectedIndex]?.text || "Assistant";
     const assistantContent = addMessage("assistant", "", agentLabel);
     messageInput.value = "";
+    messageInput.style.height = "auto";
     statusEl.textContent = "Streaming...";
     statsEl.textContent = "";
     statsEl.style.display = "none";
 
     chat.scrollTop = chat.scrollHeight;
 
-    const agentId = agentSelect.value || "android";
+    const agentId = agentSelect.value || "general";
     const strategyId = strategySelect.value || "default";
     const sessionId = currentSessionId || "default";
 
-    const url =
+    let url =
       "/stream?message=" +
       encodeURIComponent(text) +
       "&agent=" +
@@ -294,12 +427,25 @@ document.addEventListener("DOMContentLoaded", () => {
       "&session_id=" +
       encodeURIComponent(sessionId);
 
+    if (customSettings.temperature !== null) {
+      url += "&temperature=" + encodeURIComponent(customSettings.temperature);
+    }
+    if (customSettings.top_p !== null) {
+      url += "&top_p=" + encodeURIComponent(customSettings.top_p);
+    }
+
+    submitBtn.style.display = "none";
+    stopBtn.style.display = "inline-block";
+
     const source = new EventSource(url);
+    currentSource = source;
 
     source.onmessage = (event) => {
       const payload = JSON.parse(event.data);
       if (payload.delta) {
-        assistantContent.textContent += payload.delta;
+        assistantContent._rawText += payload.delta;
+        assistantContent.innerHTML = marked.parse(assistantContent._rawText);
+        addCopyButtons(assistantContent);
         chat.scrollTop = chat.scrollHeight;
       }
       if (payload.stats) {
@@ -310,11 +456,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (payload.done) {
         statusEl.textContent = "";
         source.close();
+        currentSource = null;
+        submitBtn.style.display = "inline-block";
+        stopBtn.style.display = "none";
         loadSessions(); // Reload sidebar to update titles
       }
       if (payload.error) {
         statusEl.textContent = "Error: " + payload.error;
         source.close();
+        currentSource = null;
+        submitBtn.style.display = "inline-block";
+        stopBtn.style.display = "none";
       }
       chat.scrollTop = chat.scrollHeight;
     };
@@ -322,8 +474,24 @@ document.addEventListener("DOMContentLoaded", () => {
     source.onerror = () => {
       statusEl.textContent = "Stream connection error.";
       source.close();
+      currentSource = null;
+      submitBtn.style.display = "inline-block";
+      stopBtn.style.display = "none";
     };
   });
+
+  if (stopBtn) {
+    stopBtn.addEventListener("click", () => {
+      if (currentSource) {
+        currentSource.close();
+        currentSource = null;
+        statusEl.textContent = "Generation stopped by user.";
+        submitBtn.style.display = "inline-block";
+        stopBtn.style.display = "none";
+        loadSessions(); // Optional: reload sessions
+      }
+    });
+  }
 
   clearBtn.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -346,9 +514,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  messageInput.addEventListener("input", function () {
+    this.style.height = "auto";
+    this.style.height = (this.scrollHeight) + "px";
+    if (this.value === "") {
+      this.style.height = "auto";
+    }
+  });
+
   function toggleStrategyControls() {
     const isGeneral = agentSelect.value === "general";
-    strategySelect.style.display = isGeneral ? "inline-block" : "none";
+    const strategyGroup = document.getElementById("strategyGroup");
+    if (strategyGroup) {
+      strategyGroup.style.display = isGeneral ? "block" : "none";
+    }
     if (!isGeneral) {
       // Hide branch buttons as well
       document.querySelectorAll(".branch-btn").forEach(btn => {
@@ -360,6 +539,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   agentSelect.addEventListener("change", toggleStrategyControls);
+
+  // Re-render pre-rendered messages with Marked
+  document.querySelectorAll(".msg .content").forEach(el => {
+    if (el._rawText) {
+      el.classList.add("markdown-body");
+      el.innerHTML = marked.parse(el._rawText);
+      addCopyButtons(el);
+    }
+  });
 
   // Init
   loadSessions();

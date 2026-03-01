@@ -84,8 +84,11 @@ Edit defaults in `deepseek_chat/core/config.py`:
 ## Notes
 - Streaming parses `data:` chunks.
 - Web UI Streams via SSE at `/stream`.
-- Web UI has an agent selector and a Strategy selector (for General Agent).
-- **Web UI Sidebar**: Displays autonomous chat sessions (branches) with auto-generated titles. Users can switch between them and delete them.
+- Web UI has an agent selector, a Strategy selector (for General Agent), and a Settings Modal ⚙️ (Temperature, Top P).
+- **Web UI Features**:
+  - Full Markdown parsing with syntax highlighting and ``Copy`` buttons for code blocks.
+  - Generates answers dynamically, can be cancelled mid-stream using the **Stop 🛑** button.
+  - Sidebar: Displays autonomous chat sessions (branches) with auto-generated titles. Users can switch between them and delete them.
 - **Context Strategies (GeneralAgent)**:
   - `default`: Folds old context into a running summary to save tokens.
   - `window`: Strict N-message sliding window. Forgets older text entirely.

@@ -27,17 +27,20 @@ def render_messages(messages: List[Dict[str, str]], agent_name: str) -> str:
         rows.append(
             f"""
             <div class="msg {role}" data-msg-id="{i}">
-                <div class="meta">
-                    {role_label}
-                    <button class="branch-btn" title="Branch from here" style="display:none; font-size:0.7em; margin-left: 8px; cursor: pointer;">Branch</button>
+                <div class="msg-inner">
+                    <div class="meta">
+                        <span>{role_label}</span>
+                        {"<button class='branch-btn' title='Branch from here'><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='6' y1='3' x2='6' y2='15'></line><circle cx='18' cy='6' r='3'></circle><circle cx='6' cy='18' r='3'></circle><path d='M18 9a9 9 0 0 1-9 9'></path></svg></button>" if role != 'system' else ""}
+                    </div>
+                    <div class="content"></div>
                 </div>
-                <div class="content"></div>
                 <script>
                   (function() {{
                     const nodes = document.getElementsByClassName("content");
                     const last = nodes[nodes.length - 1];
                     if (last) {{
-                      last.textContent = {json.dumps(content)};
+                      last._rawText = {json.dumps(content)};
+                      last.textContent = last._rawText;
                     }}
                   }})();
                 </script>
