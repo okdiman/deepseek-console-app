@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncGenerator, Dict
 
+from fastapi import Request
 from fastapi.responses import StreamingResponse
 
 from .state import (
@@ -33,7 +34,11 @@ def sse_response(event_generator: AsyncGenerator[str, None]) -> StreamingRespons
     )
 
 
-async def stream_events(message: str, agent_id: str, strategy: str = "default", session_id: str = "default") -> AsyncGenerator[str, None]:
+async def stream_events(
+    request: Request,
+    message: str, agent_id: str, strategy: str = "default", session_id: str = "default",
+    temperature: Optional[float] = None, top_p: Optional[float] = None
+) -> AsyncGenerator[str, None]:
     config = get_config()
     session = get_session(session_id)
     client = get_client()
@@ -41,10 +46,14 @@ async def stream_events(message: str, agent_id: str, strategy: str = "default", 
 
     try:
         if agent_id == "general":
-            async for chunk in selected_agent.stream_reply(message, strategy=strategy):
+            async for chunk in selected_agent.stream_reply(message, strategy=strategy, temperature=temperature, top_p=top_p):
+                if await request.is_disconnected():
+                    break
                 yield sse_event({"delta": chunk})
         else:
-            async for chunk in selected_agent.stream_reply(message):
+            async for chunk in selected_agent.stream_reply(message, temperature=temperature, top_p=top_p):
+                if await request.is_disconnected():
+                    break
                 yield sse_event({"delta": chunk})
 
         stats: Dict[str, Any] = {}

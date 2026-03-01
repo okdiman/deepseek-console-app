@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from typing import Optional
+
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from .state import (
@@ -36,12 +38,18 @@ async def clear(session_id: str = Query("default")) -> JSONResponse:
 
 @router.get("/stream")
 async def stream(
+    request: Request,
     message: str = Query(..., min_length=1),
     agent: str = Query(get_default_agent_id(), min_length=1),
     strategy: str = Query("default"),
     session_id: str = Query("default"),
+    temperature: Optional[float] = Query(default=None),
+    top_p: Optional[float] = Query(default=None),
 ) -> StreamingResponse:
-    return sse_response(stream_events(message=message, agent_id=agent, strategy=strategy, session_id=session_id))
+    return sse_response(stream_events(
+        request=request, message=message, agent_id=agent, strategy=strategy, session_id=session_id,
+        temperature=temperature, top_p=top_p
+    ))
 
 @router.get("/sessions")
 async def list_sessions() -> JSONResponse:

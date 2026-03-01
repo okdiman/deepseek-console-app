@@ -105,7 +105,7 @@ class GeneralAgent:
             self._session.facts = new_facts
 
     async def stream_reply(
-        self, user_input: str, temperature: Optional[float] = None, strategy: str = "default"
+        self, user_input: str, temperature: Optional[float] = None, top_p: Optional[float] = None, strategy: str = "default"
     ) -> AsyncGenerator[str, None]:
         """
         Stream the assistant reply while maintaining session state.
@@ -157,23 +157,24 @@ class GeneralAgent:
         history_count = count_messages_tokens(history_messages, model=model)
 
         response_parts: List[str] = []
-        async for chunk in self._client.stream_message(
-            history_messages, temperature=temperature
-        ):
-            response_parts.append(chunk)
-            yield chunk
+        try:
+            async for chunk in self._client.stream_message(
+                history_messages, temperature=temperature, top_p=top_p
+            ):
+                response_parts.append(chunk)
+                yield chunk
+        finally:
+            response = "".join(response_parts).strip()
+            response_count = count_text_tokens(response, model=model)
 
-        response = "".join(response_parts).strip()
-        response_count = count_text_tokens(response, model=model)
+            self._last_token_stats = TokenStats(
+                request=request_count,
+                history=history_count,
+                response=response_count,
+            )
 
-        self._last_token_stats = TokenStats(
-            request=request_count,
-            history=history_count,
-            response=response_count,
-        )
-
-        if response:
-            self._session.add_assistant(response)
+            if response:
+                self._session.add_assistant(response)
             
         # Background task: Auto-titling the session summary based on the first few messages
         # We only generate a title if it's currently empty, or if we want to "refresh" it.
@@ -213,7 +214,7 @@ class GeneralAgent:
             print(f"[DEBUG] Error generating session title: {e}")
 
     async def ask(
-        self, user_input: str, temperature: Optional[float] = None
+        self, user_input: str, temperature: Optional[float] = None, top_p: Optional[float] = None
     ) -> AgentResult:
         """
         Non-streaming helper that collects the full response.
@@ -222,7 +223,7 @@ class GeneralAgent:
             AgentResult with full content and last metrics.
         """
         response_parts: List[str] = []
-        async for chunk in self.stream_reply(user_input, temperature=temperature):
+        async for chunk in self.stream_reply(user_input, temperature=temperature, top_p=top_p):
             response_parts.append(chunk)
 
         content = "".join(response_parts).strip()

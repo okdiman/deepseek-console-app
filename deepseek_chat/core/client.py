@@ -28,7 +28,9 @@ class DeepSeekClient:
         return self._last_metrics
 
     async def stream_message(
-        self, messages: List[Dict[str, str]], temperature: Optional[float] = None
+        self, messages: List[Dict[str, str]], 
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None
     ) -> AsyncGenerator[str, None]:
         headers = {
             "Authorization": f"Bearer {self._config.api_key}",
@@ -45,9 +47,12 @@ class DeepSeekClient:
             "temperature": temperature
             if temperature is not None
             else params.temperature,
+            "top_p": top_p,
             "response_format": params.response_format,
             "stop": params.stop,
         }
+        if payload["top_p"] is None:
+            del payload["top_p"]
         if self._config.provider == "deepseek":
             payload.update(
                 {
