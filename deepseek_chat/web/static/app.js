@@ -177,8 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadMemory() {
     try {
-      const sessionId = currentSessionId || "default";
-      const res = await fetch(`/memory?session_id=${encodeURIComponent(sessionId)}`);
+      const res = await fetch(`/memory`);
       if (res.ok) {
         const data = await res.json();
         renderMemoryList(workingList, data.working_memory || [], "working");
@@ -201,8 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
       delBtn.innerHTML = "🗑";
       delBtn.title = "Delete memory";
       delBtn.addEventListener("click", async () => {
-        const sessionId = currentSessionId || "default";
-        const res = await fetch(`/memory/${layer}/${index}?session_id=${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+        const res = await fetch(`/memory/${layer}/${index}`, { method: "DELETE" });
         if (res.ok) {
           loadMemory();
         }
@@ -217,9 +215,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const text = inputEl.value.trim();
     if (!text) return;
 
-    const sessionId = currentSessionId || "default";
     try {
-      const res = await fetch(`/memory/${layer}?session_id=${encodeURIComponent(sessionId)}`, {
+      const res = await fetch(`/memory/${layer}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: text })

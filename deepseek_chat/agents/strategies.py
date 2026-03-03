@@ -45,7 +45,7 @@ class DefaultStrategy(ContextStrategy):
     """
 
     async def process_context(self, system_prompt: str, user_input: str) -> None:
-        config = self._client._config
+        config = self._client.config
         user_msg_count = sum(1 for m in self._session.messages() if m.get("role") == "user")
         
         if config.compression_enabled and user_msg_count > config.compression_threshold:
@@ -53,7 +53,7 @@ class DefaultStrategy(ContextStrategy):
 
     async def _compress_history(self) -> None:
         """Summarizes old messages and updates the session."""
-        config = self._client._config
+        config = self._client.config
         messages = self._session.messages()
         keep_count = config.compression_keep
         
@@ -83,10 +83,6 @@ class DefaultStrategy(ContextStrategy):
             self._session.apply_compression(new_summary, keep_count)
 
     def build_history_messages(self, system_prompt: str) -> List[Dict[str, str]]:
-        memory_injection = self._session.memory.get_system_prompt_injection()
-        if memory_injection:
-            system_prompt += f"\n\n{memory_injection}"
-            
         history_messages = [{"role": "system", "content": system_prompt}]
         
         if self._session.summary:
@@ -99,7 +95,7 @@ class DefaultStrategy(ContextStrategy):
         return history_messages
 
     def get_system_message_for_response(self) -> Optional[str]:
-        config = self._client._config
+        config = self._client.config
         user_msg_count = sum(1 for m in self._session.messages() if m.get("role") == "user")
         
         # This count includes the current input because add_user happens before strategy
@@ -124,10 +120,6 @@ class WindowStrategy(ContextStrategy):
         pass
 
     def build_history_messages(self, system_prompt: str) -> List[Dict[str, str]]:
-        memory_injection = self._session.memory.get_system_prompt_injection()
-        if memory_injection:
-            system_prompt += f"\n\n{memory_injection}"
-            
         history_messages = [{"role": "system", "content": system_prompt}]
         messages_to_include = self._session.messages()[-self.window_size:]
         history_messages.extend(messages_to_include)
@@ -183,10 +175,6 @@ class FactsStrategy(ContextStrategy):
         if self._session.facts:
             system_prompt += f"\n\nIMPORTANT FACTS TO REMEMBER:\n{self._session.facts}"
             
-        memory_injection = self._session.memory.get_system_prompt_injection()
-        if memory_injection:
-            system_prompt += f"\n\n{memory_injection}"
-
         history_messages = [{"role": "system", "content": system_prompt}]
         messages_to_include = self._session.messages()[-self.window_size:]
         history_messages.extend(messages_to_include)

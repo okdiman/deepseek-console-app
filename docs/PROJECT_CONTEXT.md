@@ -3,7 +3,7 @@
 Architecture guidelines: `docs/ARCHITECTURE.md`
 
 ## What it is
-Console app for streaming chat with DeepSeek Chat Completions API, using an Android-focused agent.
+Streaming chat application with DeepSeek/Groq API, featuring a Web UI and console interface with multiple agents (General, Android).
 
 ## Web UI Structure (after refactor)
 - `deepseek_chat/web/app.py` — FastAPI app, wires router
@@ -38,11 +38,11 @@ Console app for streaming chat with DeepSeek Chat Completions API, using an Andr
 - `deepseek_chat/core/config.py` — config + optional params (code-only)
 - `deepseek_chat/core/client.py` — streaming HTTP client
 - `deepseek_chat/agents/base_agent.py` — Base agent orchestrator running Hook pipelines
-- `deepseek_chat/agents/hooks.py` — AgentHooks (TokenTracker, MemoryInjection, UserProfile, AutoTitle)
+- `deepseek_chat/agents/hooks.py` — AgentHooks (MemoryInjection, UserProfile, AutoTitle)
 - `deepseek_chat/agents/android_agent.py` — Android-focused agent + system prompt
 - `deepseek_chat/agents/general_agent.py` — General-purpose agent
-- `deepseek_chat/core/session.py` — message history, branching, and embedded MemoryStore
-- `deepseek_chat/core/memory.py` — explicit memory layers (working, long_term)
+- `deepseek_chat/core/session.py` — message history, branching, context compression
+- `deepseek_chat/core/memory.py` — global explicit memory layers (working, long_term), persisted to `~/.deepseek_chat/memory.json`
 - `deepseek_chat/core/profile.py` — global UserProfile model (`~/.deepseek_chat/profile.json`)
 - `deepseek_chat/core/stream_printer.py` — stall indicator
 - `deepseek_chat/core/comparing/model_compare.py` — сравнение ответов разных моделей
@@ -77,7 +77,7 @@ Context persistence:
 - `DEEPSEEK_CONTEXT_MAX_MESSAGES` (default 40)
 
 Context compression:
-- `DEEPSEEK_COMPRESSION_ENABLED` (default `true`)
+- `DEEPSEEK_COMPRESSION_ENABLED` (default `false`)
 - `DEEPSEEK_COMPRESSION_THRESHOLD` (default 10)
 - `DEEPSEEK_COMPRESSION_KEEP` (default 4)
 
@@ -93,16 +93,14 @@ Edit defaults in `deepseek_chat/core/config.py`:
   - Full Markdown parsing with syntax highlighting and ``Copy`` buttons for code blocks.
   - Generates answers dynamically, can be cancelled mid-stream using the **Stop 🛑** button.
   - Sidebar: Displays autonomous chat sessions (branches) with auto-generated titles. Users can switch between them and delete them.
-  - **Memory/Brain (🧠)**: Session-specific Explicit Memory. Users can save working and long-term memory constraints.
+   - **Memory/Brain (🧠)**: Global Explicit Memory. Users can save working and long-term memory constraints shared across all sessions.
   - **Profile (👤)**: Global User Profile. Modifies agent responses with strict styling, formatting, and constraints across all sessions.
 - **Context Strategies (GeneralAgent)**:
-  - `default`: Folds old context into a running summary to save tokens.
+  - `default` / `branching`: Folds old context into a running summary to save tokens.
   - `window`: Strict N-message sliding window. Forgets older text entirely.
   - `facts`: Extracts and strictly persists key user requirements in a background process.
-  - `branching`: Isolates conversation timelines. Users can branch off old messages into new parallel sessions.
-- Web UI shows a stats panel with local tokens, API usage, cost, and session cost (auto-hides when empty).
+- Web UI shows a stats panel with API usage, cost, and session cost (auto-hides when empty).
 - `AndroidAgent` injects an Android-focused `system` prompt, `GeneralAgent` is for general conversation and supports the distinct Context Strategies.
-- Local token counting is shown in the CLI: request, full history, and response (uses `tiktoken` if available, otherwise a heuristic).
 - API usage tokens (prompt/completion/total) are shown when provided by the provider.
 - If context length is exceeded, the client raises a clear `Context length exceeded` error.
 - `/provider` prints current provider and model.
@@ -134,12 +132,18 @@ Structure:
   "model": "deepseek-chat",
   "updated_at": "2025-01-01T12:00:00Z",
   "summary": "This is a summary of older compressed messages.",
-  "working_memory": ["Need to optimize DB queries"],
-  "long_term_memory": ["Project uses Python 3.10+"],
   "messages": [
     {"role": "user", "content": "Привет"},
     {"role": "assistant", "content": "Привет! Чем помочь?"}
   ]
+}
+
+## Global Memory File
+Default path: `~/.deepseek_chat/memory.json`
+Structure:
+{
+  "working_memory": ["Need to optimize DB queries"],
+  "long_term_memory": ["Project uses Python 3.10+"]
 }
 
 ## Global Profile File
@@ -150,3 +154,4 @@ Structure corresponds to `UserProfile` parameters like `name`, `role`, `style_pr
 1. Run the app, send a couple of messages.
 2. Exit and restart the app — context should be restored.
 3. Run `/clear` and restart — context should be empty.
+4. Add memory facts in one session — they should appear in all sessions.

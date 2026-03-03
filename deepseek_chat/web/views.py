@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
@@ -50,7 +50,7 @@ def render_messages(messages: List[Dict[str, str]], agent_name: str) -> str:
     return "\n".join(rows)
 
 
-def render_index(request: Optional[Request] = None) -> str:
+def render_index(request: Request) -> str:
     """
     Render the index page using Jinja2 template.
     """
@@ -61,27 +61,6 @@ def render_index(request: Optional[Request] = None) -> str:
     rendered_messages = render_messages(session.messages(), agent_name)
     agents = get_agent_registry()
     default_agent_id = get_default_agent_id()
-    # If request is not provided, create a dummy one for template rendering
-    if request is None:
-        from starlette.datastructures import URL, Headers, QueryParams
-        from starlette.requests import Request as StarletteRequest
-
-        request = StarletteRequest(
-            scope={
-                "type": "http",
-                "headers": Headers({}),
-                "query_string": b"",
-                "server": ("127.0.0.1", 8000),
-                "client": ("127.0.0.1", 12345),
-                "method": "GET",
-                "path": "/",
-                "raw_path": b"/",
-                "scheme": "http",
-                "root_path": "",
-                "query_params": QueryParams(""),
-                "url": URL("http://127.0.0.1/"),
-            }
-        )
     return templates.get_template("index.html").render(
         request=request,
         rendered_messages=rendered_messages,

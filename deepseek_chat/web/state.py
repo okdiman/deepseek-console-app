@@ -52,8 +52,6 @@ def get_agent(agent_id: str, session_id: str = "default") -> AndroidAgent | Gene
 
 _DEFAULT_AGENT_ID = "general"
 
-_session_cost_usd = 0.0
-
 if _config.persist_context:
     _sessions["default"].load(_config.context_path)
 
@@ -91,22 +89,3 @@ def get_default_agent_id() -> str:
 
 def get_default_agent_name() -> str:
     return _AGENT_REGISTRY[_DEFAULT_AGENT_ID]
-
-
-def get_session_cost_usd() -> float:
-    return _session_cost_usd
-
-
-def set_session_cost_usd(value: float) -> None:
-    global _session_cost_usd
-    _session_cost_usd = value
-
-
-def add_session_cost_usd(amount: float) -> None:
-    global _session_cost_usd
-    _session_cost_usd += amount
-
-
-def reset_session_cost_usd() -> None:
-    global _session_cost_usd
-    _session_cost_usd = 0.0

@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from .memory import MemoryStore
+
 
 
 class ChatSession:
@@ -16,7 +16,6 @@ class ChatSession:
         self._max_messages = max_messages
         self.summary: str = ""
         self.facts: str = "" # Legacy (kept for backward compatibility, will be migrated to memory logic if needed)
-        self.memory: MemoryStore = MemoryStore()
         self.updated_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
     def add_user(self, content: str) -> None:
@@ -33,7 +32,6 @@ class ChatSession:
         self._messages = []
         self.summary = ""
         self.facts = ""
-        self.memory = MemoryStore()
 
     def messages(self) -> List[Dict[str, str]]:
         return list(self._messages)
@@ -44,8 +42,6 @@ class ChatSession:
         if up_to_index != 0:
             new_session.summary = self.summary
             new_session.facts = self.facts
-            # Clone memory by serializing & deserializing
-            new_session.memory = MemoryStore.from_dict(self.memory.to_dict())
         
         if up_to_index is not None:
             new_session._messages = list(self._messages[:up_to_index])
@@ -68,9 +64,6 @@ class ChatSession:
 
         self.summary = payload.get("summary", "")
         self.updated_at = payload.get("updated_at", self.updated_at)
-        memory_data = payload.get("memory")
-        if memory_data:
-            self.memory = MemoryStore.from_dict(memory_data)
 
         messages = payload.get("messages", [])
         if isinstance(messages, list):
@@ -102,7 +95,6 @@ class ChatSession:
             "updated_at": self.updated_at,
             "summary": self.summary,
             "messages": self.messages(),
-            "memory": self.memory.to_dict(),
         }
 
         tmp_path = f"{path}.tmp"

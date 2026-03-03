@@ -13,9 +13,10 @@ from .state import (
     get_config,
     get_default_agent_id,
     get_session,
-    reset_session_cost_usd,
 )
+from .cost_tracker import reset_session_cost_usd
 from ..core.profile import UserProfile
+from ..core.memory import MemoryStore
 from .streaming import sse_response, stream_events
 from .views import render_index
 
@@ -26,8 +27,8 @@ class MemoryContent(BaseModel):
 
 
 @router.get("/", response_class=HTMLResponse)
-async def index() -> HTMLResponse:
-    return HTMLResponse(render_index())
+async def index(request: Request) -> HTMLResponse:
+    return HTMLResponse(render_index(request))
 
 
 @router.post("/clear")
@@ -36,6 +37,10 @@ async def clear(session_id: str = Query("default")) -> JSONResponse:
     config = get_config()
     session.clear()
     reset_session_cost_usd()
+    # Clear working memory (session-scoped), keep long-term memory
+    memory = MemoryStore.load()
+    memory.clear_working_memory()
+    memory.save()
     if config.persist_context:
         session.save(config.context_path, config.provider, config.model)
     return JSONResponse({"ok": True})
@@ -88,38 +93,34 @@ async def get_history(session_id: str = Query("default")) -> JSONResponse:
     return JSONResponse({"messages": session.messages(), "summary": session.summary, "facts": session.facts})
 
 @router.get("/memory")
-async def get_memory(session_id: str = Query("default")) -> JSONResponse:
-    session = get_session(session_id)
-    return JSONResponse(session.memory.to_dict())
+async def get_memory() -> JSONResponse:
+    memory = MemoryStore.load()
+    return JSONResponse(memory.to_dict())
 
 @router.post("/memory/{layer}")
-async def add_memory(layer: str, payload: MemoryContent, session_id: str = Query("default")) -> JSONResponse:
-    session = get_session(session_id)
+async def add_memory(layer: str, payload: MemoryContent) -> JSONResponse:
+    memory = MemoryStore.load()
     if layer == "working":
-        session.memory.add_working_memory(payload.content)
+        memory.add_working_memory(payload.content)
     elif layer == "long_term":
-        session.memory.add_long_term_memory(payload.content)
+        memory.add_long_term_memory(payload.content)
     else:
         return JSONResponse({"ok": False, "error": "Invalid memory layer"}, status_code=400)
         
-    config = get_config()
-    if config.persist_context:
-        session.save(config.context_path, config.provider, config.model)
+    memory.save()
     return JSONResponse({"ok": True})
 
 @router.delete("/memory/{layer}/{index}")
-async def remove_memory(layer: str, index: int, session_id: str = Query("default")) -> JSONResponse:
-    session = get_session(session_id)
+async def remove_memory(layer: str, index: int) -> JSONResponse:
+    memory = MemoryStore.load()
     if layer == "working":
-        session.memory.remove_working_memory(index)
+        memory.remove_working_memory(index)
     elif layer == "long_term":
-        session.memory.remove_long_term_memory(index)
+        memory.remove_long_term_memory(index)
     else:
         return JSONResponse({"ok": False, "error": "Invalid memory layer"}, status_code=400)
         
-    config = get_config()
-    if config.persist_context:
-        session.save(config.context_path, config.provider, config.model)
+    memory.save()
     return JSONResponse({"ok": True})
 
 

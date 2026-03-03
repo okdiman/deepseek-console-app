@@ -30,12 +30,12 @@ class ConsoleApp:
         print("=" * 60)
 
     def _handle_provider_command(self) -> None:
-        config = self._client._config
+        config = self._client.config
         print(f"ℹ️  provider: {config.provider}")
         print(f"ℹ️  model: {config.model}")
 
     async def _handle_models_command(self) -> None:
-        config = self._client._config
+        config = self._client.config
         if not config.models_url:
             print("ℹ️  models endpoint is not configured for this provider.")
             return
@@ -72,7 +72,7 @@ class ConsoleApp:
     async def run(self) -> None:
         self.print_welcome()
 
-        config = self._client._config
+        config = self._client.config
         if config.persist_context:
             self._session.load(config.context_path)
 

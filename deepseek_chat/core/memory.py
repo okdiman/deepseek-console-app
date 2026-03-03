@@ -1,3 +1,5 @@
+import json
+import os
 from typing import Dict, List, Any
 
 class MemoryStore:
@@ -32,6 +34,10 @@ class MemoryStore:
         if 0 <= index < len(self.long_term_memory):
             self.long_term_memory.pop(index)
 
+    def clear_working_memory(self) -> None:
+        """Clears working memory (session-scoped). Called on /clear or new session."""
+        self.working_memory = []
+
     def get_system_prompt_injection(self) -> str:
         """
         Returns a formatted string containing all memory layers
@@ -39,14 +45,23 @@ class MemoryStore:
         """
         parts = []
         
+        if self.long_term_memory or self.working_memory:
+            parts.append(
+                "CRITICAL: The following memory sections contain GROUND TRUTH facts about the user. "
+                "You MUST use this information in your responses. If your previous responses in the "
+                "conversation contradict this memory, the MEMORY IS CORRECT and your previous responses were wrong. "
+                "Always prioritize memory data over conversation history."
+            )
+            parts.append("")
+        
         if self.long_term_memory:
-            parts.append("[LONG-TERM MEMORY (Persistent Profile & Core Rules)]")
+            parts.append("[LONG-TERM MEMORY (Permanent — persists across all sessions)]")
             for i, fact in enumerate(self.long_term_memory, 1):
                 parts.append(f"{i}. {fact}")
             parts.append("") # padding
             
         if self.working_memory:
-            parts.append("[WORKING MEMORY (Current Task Context)]")
+            parts.append("[WORKING MEMORY (Temporary — clears on session reset)]")
             for i, fact in enumerate(self.working_memory, 1):
                 parts.append(f"{i}. {fact}")
             parts.append("") # padding
@@ -61,10 +76,36 @@ class MemoryStore:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MemoryStore":
-        """Deserialize memory from persistence."""
+    def get_storage_path(cls) -> str:
+        """Returns the default storage path for the global memory."""
+        memory_path = os.getenv("DEEPSEEK_MEMORY_PATH", "~/.deepseek_chat/memory.json")
+        return os.path.expanduser(memory_path)
+
+    @classmethod
+    def load(cls) -> "MemoryStore":
+        """Deserializes memory from the global persistent file."""
         store = cls()
-        if data:
-            store.working_memory = data.get("working_memory", [])
-            store.long_term_memory = data.get("long_term_memory", [])
+        path = cls.get_storage_path()
+        if not os.path.exists(path):
+            return store
+            
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                store.working_memory = data.get("working_memory", [])
+                store.long_term_memory = data.get("long_term_memory", [])
+        except Exception as e:
+            print(f"[Error] Failed to load MemoryStore from {path}: {e}")
+            
         return store
+
+    def save(self) -> None:
+        """Saves memory to the global persistent JSON file."""
+        path = self.get_storage_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[Error] Failed to save MemoryStore to {path}: {e}")

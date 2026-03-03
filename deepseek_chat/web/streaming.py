@@ -7,13 +7,12 @@ from fastapi import Request
 from fastapi.responses import StreamingResponse
 
 from .state import (
-    add_session_cost_usd,
     get_agent,
     get_client,
     get_config,
     get_session,
-    get_session_cost_usd,
 )
+from .cost_tracker import add_session_cost_usd, get_session_cost_usd
 
 SSE_HEADERS: Dict[str, str] = {
     "Cache-Control": "no-cache",

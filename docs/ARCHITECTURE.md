@@ -1,4 +1,4 @@
-# Architecture Guidelines — DeepSeek Console App
+# Architecture Guidelines — DeepSeek Chat
 
 ## Goals
 - Keep the app **simple, readable, and reliable**.
@@ -7,8 +7,10 @@
 
 ## Architectural Style
 - **Layered architecture** with clear boundaries:
-  - **Interface layer**: console I/O, UX, commands (`console_app.py`, `stream_printer.py`)
-  - **Domain/session layer**: chat history, message management, and persistence (`session.py`)
+  - **Interface layer**: console I/O, Web UI, SSE streaming (`console/app.py`, `web/`)
+  - **Agent layer**: LLM orchestration, hook pipelines, context strategies (`agents/`)
+  - **Domain/session layer**: chat history, message management, persistence (`session.py`)
+  - **Data layer**: global persistent stores — Memory & Profile (`memory.py`, `profile.py`)
   - **Client/integration layer**: HTTP API calls & streaming parsing (`client.py`)
   - **Configuration layer**: runtime configuration (`config.py`)
 - **Single responsibility per module**.
@@ -16,14 +18,31 @@
 
 ## Core Patterns
 - **Composition over inheritance**:
-  - `ConsoleApp` composes `DeepSeekClient` and `ChatSession`.
+  - `BaseAgent` composes `DeepSeekClient`, `ChatSession`, and a list of `AgentHook` instances.
+  - `ConsoleApp` composes `DeepSeekClient`, `ChatSession`, and `AndroidAgent`.
+- **Hook/Middleware pattern** for agent behavior:
+  - `AgentHook` ABC defines `before_stream()` and `after_stream()` lifecycle methods.
+  - Hooks modify the system prompt or inject context without touching agent internals.
+  - Current hooks: `MemoryInjectionHook`, `UserProfileHook`, `AutoTitleHook`.
+- **Strategy pattern** for context management:
+  - `ContextStrategy` ABC with `process_context()` and `build_history_messages()`.
+  - Strategies: `DefaultStrategy` (compression), `WindowStrategy`, `FactsStrategy`.
 - **Explicit configuration**:
   - Optional request parameters are defined **only in code** (`OptionalRequestParams`).
 - **Pure data structures**:
   - Messages are plain dicts with `role` and `content`.
 
+## Global Persistent State
+Two data stores persist globally across all sessions (similar to app-level settings):
+- **Memory** (`~/.deepseek_chat/memory.json`): Working memory and long-term memory facts.
+  Injected via `MemoryInjectionHook` as a late system message in the conversation history.
+- **Profile** (`~/.deepseek_chat/profile.json`): User name, role, style preferences, constraints.
+  Injected via `UserProfileHook` into the system prompt.
+
+Both are loaded from disk on every request to ensure real-time updates.
+
 ## Error Handling
-- Fail fast on missing required config (`DEEPSEEK_API_KEY`).
+- Fail fast on missing required config (`API_KEY`).
 - Surface network or API errors clearly and without retries unless explicitly added.
 - Keep error messages user-readable in the console loop.
 
@@ -40,7 +59,8 @@
 
 ## Code Organization Rules
 - **No logic in `main.py` (root)** beyond bootstrapping.
-- `deepseek_chat/main.py` orchestrates assembly.
+- `console/main.py` orchestrates assembly for the CLI.
+- `web/app.py` wires FastAPI router and static files for the Web UI.
 - Keep cross-module imports **minimal and explicit**.
 
 ## Naming & Style
@@ -55,10 +75,13 @@
 
 ## Extension Guidelines
 When adding features:
-- Place UI/CLI behavior in `console_app.py`.
+- Place UI/CLI behavior in `console/app.py` or `web/`.
 - Place API changes in `client.py`.
-- Place stateful conversation behavior and persistence mechanics in `session.py`.
-- `console_app.py` triggers load/save; `session.py` owns storage details.
+- Place agent orchestration logic in `agents/base_agent.py`.
+- Add new agent behaviors as `AgentHook` subclasses in `agents/hooks.py`.
+- Add new context management approaches as `ContextStrategy` subclasses in `agents/strategies.py`.
+- Place stateful conversation behavior in `session.py`.
+- Place global persistent data models in `core/` (e.g., `memory.py`, `profile.py`).
 - Keep configuration changes in `config.py`.
 - Keep new utilities small and scoped to one responsibility.
 - After any code changes, verify `PROJECT_CONTEXT.md` and update it if needed.

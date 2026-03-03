@@ -24,6 +24,11 @@ class DeepSeekClient:
         self._config = config
         self._last_metrics: Optional[StreamMetrics] = None
 
+    @property
+    def config(self) -> ClientConfig:
+        """Read-only access to the client configuration."""
+        return self._config
+
     def last_metrics(self) -> Optional[StreamMetrics]:
         return self._last_metrics
 

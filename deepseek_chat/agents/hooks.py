@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, TYPE_CHECKING, Optional
+from typing import Dict, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .base_agent import BaseAgent
@@ -67,12 +66,22 @@ class UserProfileHook(AgentHook):
 
 class MemoryInjectionHook(AgentHook):
     """
-    Injects the Explicit Memory Store into the Agent's system prompt prior to generation.
+    Injects the Explicit Memory Store into the conversation history as a late
+    system message, placed right before the user's latest message.
+    This structural placement ensures the LLM treats memory facts as a recent
+    context update, preventing it from anchoring on stale conversation history.
     """
     async def before_stream(self, agent: BaseAgent, user_input: str, system_prompt: str, history: List[Dict[str, str]]) -> str:
-        memory_injection = agent._session.memory.get_system_prompt_injection()
+        from ..core.memory import MemoryStore
+        memory = MemoryStore.load()
+        memory_injection = memory.get_system_prompt_injection()
         if memory_injection:
-            return system_prompt + f"\n\n{memory_injection}"
+            memory_msg = {"role": "system", "content": memory_injection}
+            # Insert right before the last message (user's latest input)
+            if len(history) >= 2:
+                history.insert(-1, memory_msg)
+            else:
+                history.insert(0, memory_msg)
         return system_prompt
 
     async def after_stream(self, agent: BaseAgent, full_response: str) -> None:
@@ -118,8 +127,7 @@ class AutoTitleHook(AgentHook):
                 response_parts.append(chunk)
                 
             new_title = "".join(response_parts).strip().strip('"').strip("'")
-            print(f"[DEBUG] Generated new session title: '{new_title}'")
             if new_title:
                 agent._session.summary = new_title
-        except Exception as e:
-            print(f"[DEBUG] Error generating session title: {e}")
+        except Exception:
+            pass
