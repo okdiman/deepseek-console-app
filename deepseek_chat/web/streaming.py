@@ -35,7 +35,7 @@ def sse_response(event_generator: AsyncGenerator[str, None]) -> StreamingRespons
 
 async def stream_events(
     request: Request,
-    message: str, agent_id: str, strategy: str = "default", session_id: str = "default",
+    message: str, agent_id: str, session_id: str = "default",
     temperature: Optional[float] = None, top_p: Optional[float] = None
 ) -> AsyncGenerator[str, None]:
     config = get_config()
@@ -44,16 +44,10 @@ async def stream_events(
     selected_agent = get_agent(agent_id, session_id=session_id)
 
     try:
-        if agent_id == "general":
-            async for chunk in selected_agent.stream_reply(message, strategy=strategy, temperature=temperature, top_p=top_p):
-                if await request.is_disconnected():
-                    break
-                yield sse_event({"delta": chunk})
-        else:
-            async for chunk in selected_agent.stream_reply(message, temperature=temperature, top_p=top_p):
-                if await request.is_disconnected():
-                    break
-                yield sse_event({"delta": chunk})
+        async for chunk in selected_agent.stream_reply(message, temperature=temperature, top_p=top_p):
+            if await request.is_disconnected():
+                break
+            yield sse_event({"delta": chunk})
 
         stats: Dict[str, Any] = {}
 

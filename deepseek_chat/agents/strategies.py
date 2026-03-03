@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from ..core.client import DeepSeekClient
 from ..core.session import ChatSession
@@ -9,7 +10,7 @@ from ..core.session import ChatSession
 
 class ContextStrategy(ABC):
     """
-    Base class for context management strategies used by the GeneralAgent.
+    Base class for context management strategies.
     """
 
     def __init__(self, client: DeepSeekClient, session: ChatSession) -> None:
@@ -19,7 +20,7 @@ class ContextStrategy(ABC):
     @abstractmethod
     async def process_context(self, system_prompt: str, user_input: str) -> None:
         """
-        Execute any preprocessing side-effects (e.g., summarizing old history, extracting facts).
+        Execute any preprocessing side-effects (e.g., summarizing old history).
         """
         pass
 
@@ -33,166 +34,119 @@ class ContextStrategy(ABC):
     def get_system_message_for_response(self) -> Optional[str]:
         """
         Optionally return a meta-message to yield back to the user before the LLM streams.
-        For example: "[System: Compressed old context...]"
         """
         return None
 
 
-class DefaultStrategy(ContextStrategy):
+class UnifiedStrategy(ContextStrategy):
     """
-    Folds older conversation context into a running summary to save tokens.
-    Used for 'default' and 'branching' strategies.
+    Automatic context optimization combining:
+    1. Sliding window — always keep last N messages intact
+    2. Compression — summarize older messages into a running summary
+    3. Auto-facts — extract key facts during compression and add to Working Memory
     """
+
+    def __init__(self, client: DeepSeekClient, session: ChatSession) -> None:
+        super().__init__(client, session)
+        self._compressed = False
+        self._last_extracted_facts: List[str] = []
 
     async def process_context(self, system_prompt: str, user_input: str) -> None:
         config = self._client.config
         user_msg_count = sum(1 for m in self._session.messages() if m.get("role") == "user")
-        
-        if config.compression_enabled and user_msg_count > config.compression_threshold:
-            await self._compress_history()
 
-    async def _compress_history(self) -> None:
-        """Summarizes old messages and updates the session."""
+        if config.compression_enabled and user_msg_count > config.compression_threshold:
+            await self._compress_and_extract()
+
+    async def _compress_and_extract(self) -> None:
+        """Summarizes old messages and extracts key facts in a single LLM call."""
         config = self._client.config
         messages = self._session.messages()
         keep_count = config.compression_keep
-        
-        # We need to summarize messages EXCEPT the ones we are keeping.
+
         if len(messages) <= keep_count:
             return
-            
+
         old_messages = messages[:-keep_count]
-        
-        # Build prompt for summarization
-        summarize_prompt = "Сделай краткое саммари нашего предыдущего диалога. Сохрани ключевые факты и суть обсуждаемой темы."
+
+        # Build prompt for combined summarization + fact extraction
+        prompt = (
+            "Проанализируй следующий диалог и верни ТОЛЬКО валидный JSON (без markdown-разметки) в формате:\n"
+            '{"summary": "краткое саммари диалога", "facts": ["факт 1", "факт 2"]}\n\n'
+            "В summary — сохрани суть и ключевые темы обсуждения.\n"
+            "В facts — извлеки конкретные требования, ограничения, предпочтения и договорённости пользователя. "
+            "Если фактов нет, верни пустой массив."
+        )
+
         if self._session.summary:
-            summarize_prompt += f" Вот текущее саммари, дополни его новой информацией:\n{self._session.summary}"
-            
-        summary_request = [
-            {"role": "system", "content": "You are a specialized AI that summarizes context for an AI Assistant without losing crucial details."},
+            prompt += f"\n\nТекущее саммари (дополни его):\n{self._session.summary}"
+
+        request = [
+            {"role": "system", "content": "You are a specialized AI that summarizes conversations and extracts key facts. Always respond with valid JSON only."},
         ]
-        summary_request.extend(old_messages)
-        summary_request.append({"role": "user", "content": summarize_prompt})
-        
+        request.extend(old_messages)
+        request.append({"role": "user", "content": prompt})
+
         response_parts = []
-        async for chunk in self._client.stream_message(summary_request, temperature=0.3):
+        async for chunk in self._client.stream_message(request, temperature=0.1):
             response_parts.append(chunk)
+
+        raw_response = "".join(response_parts).strip()
+        
+        # Parse JSON response
+        new_summary = ""
+        extracted_facts: List[str] = []
+        
+        try:
+            # Strip markdown code fences if present
+            if raw_response.startswith("```"):
+                raw_response = raw_response.strip("`").removeprefix("json").strip()
             
-        new_summary = "".join(response_parts).strip()
+            parsed = json.loads(raw_response)
+            new_summary = parsed.get("summary", "")
+            extracted_facts = parsed.get("facts", [])
+        except (json.JSONDecodeError, AttributeError):
+            # Fallback: treat entire response as summary
+            new_summary = raw_response
+
         if new_summary:
             self._session.apply_compression(new_summary, keep_count)
 
+        # Auto-populate Working Memory with extracted facts
+        clean_facts = [f.strip() for f in extracted_facts if isinstance(f, str) and f.strip()]
+        if clean_facts:
+            from ..core.memory import MemoryStore
+            memory = MemoryStore.load()
+            for fact in clean_facts:
+                memory.add_working_memory(fact)
+            memory.save()
+
+        self._compressed = True
+        self._last_extracted_facts = clean_facts
+
     def build_history_messages(self, system_prompt: str) -> List[Dict[str, str]]:
         history_messages = [{"role": "system", "content": system_prompt}]
-        
+
         if self._session.summary:
             history_messages.append({
                 "role": "system",
                 "content": f"Previous conversation summary: {self._session.summary}"
             })
-            
+
         history_messages.extend(self._session.messages())
         return history_messages
 
     def get_system_message_for_response(self) -> Optional[str]:
-        config = self._client.config
-        user_msg_count = sum(1 for m in self._session.messages() if m.get("role") == "user")
-        
-        # This count includes the current input because add_user happens before strategy
-        # However, to be perfectly accurate we only yield the message if we ACTUALLY compress.
-        # But mirroring original logic:
-        if config.compression_enabled and user_msg_count > config.compression_threshold:
-            return "\n*[System: Сжимаю старый контекст для экономии токенов...]*\n\n"
-        return None
+        if not self._compressed:
+            return None
+
+        if self._last_extracted_facts:
+            facts_list = ", ".join(f'"{f}"' for f in self._last_extracted_facts)
+            return f"\n*[System: Контекст сжат. Извлечённые факты → Working Memory: {facts_list}]*\n\n"
+        else:
+            return "\n*[System: Контекст сжат. Новых фактов не обнаружено.]*\n\n"
 
 
-class WindowStrategy(ContextStrategy):
-    """
-    Maintains a strict sliding window of the last N messages to preserve recent context.
-    Forgets older history entirely.
-    """
-    def __init__(self, client: DeepSeekClient, session: ChatSession, window_size: int = 10) -> None:
-        super().__init__(client, session)
-        self.window_size = window_size
-
-    async def process_context(self, system_prompt: str, user_input: str) -> None:
-        # Sliding window relies entirely on how we build the history messages
-        pass
-
-    def build_history_messages(self, system_prompt: str) -> List[Dict[str, str]]:
-        history_messages = [{"role": "system", "content": system_prompt}]
-        messages_to_include = self._session.messages()[-self.window_size:]
-        history_messages.extend(messages_to_include)
-        return history_messages
-
-
-class FactsStrategy(ContextStrategy):
-    """
-    Extracts explicit requirements and facts from the user input and injects them
-    into the system prompt, enforcing them across the conversation window.
-    """
-    def __init__(self, client: DeepSeekClient, session: ChatSession, window_size: int = 10) -> None:
-        super().__init__(client, session)
-        self.window_size = window_size
-        self._extracted = False
-
-    async def process_context(self, system_prompt: str, user_input: str) -> None:
-        self._extracted = True
-        await self._extract_facts()
-
-    async def _extract_facts(self) -> None:
-        """Extracts facts from the last user message and updates session.facts."""
-        messages = self._session.messages()
-        if not messages or messages[-1].get("role") != "user":
-            return
-            
-        last_user_msg = messages[-1]["content"]
-        facts_prompt = (
-            "Извлеки новые важные факты, требования, ограничения или договоренности из следующего "
-            f"сообщения пользователя: '{last_user_msg}'. "
-            "Если ничего критичного нет, верни пустую строку. Если есть, верни краткий список."
-        )
-        
-        request = [
-            {"role": "system", "content": "You are a specialized AI that extracts key facts for context memory."},
-        ]
-        if self._session.facts:
-            request.append({"role": "system", "content": f"Текущие факты:\n{self._session.facts}"})
-            facts_prompt += "\nДополни текущие факты новыми, без повторений. Верни обновленный полный список факты."
-            
-        request.append({"role": "user", "content": facts_prompt})
-        
-        response_parts = []
-        async for chunk in self._client.stream_message(request, temperature=0.1):
-            response_parts.append(chunk)
-            
-        new_facts = "".join(response_parts).strip()
-        if new_facts:
-            self._session.facts = new_facts
-
-    def build_history_messages(self, system_prompt: str) -> List[Dict[str, str]]:
-        # Legacy facts strategy appends directly
-        if self._session.facts:
-            system_prompt += f"\n\nIMPORTANT FACTS TO REMEMBER:\n{self._session.facts}"
-            
-        history_messages = [{"role": "system", "content": system_prompt}]
-        messages_to_include = self._session.messages()[-self.window_size:]
-        history_messages.extend(messages_to_include)
-        return history_messages
-
-    def get_system_message_for_response(self) -> Optional[str]:
-        if self._extracted:
-             return "\n*[System: Извлекаю и обновляю факты...]*\n\n"
-        return None
-
-def get_strategy(strategy_name: str, client: DeepSeekClient, session: ChatSession) -> ContextStrategy:
-    """Factory method to instantiate the correct strategy."""
-    if strategy_name in ("default", "branching"):
-        return DefaultStrategy(client, session)
-    elif strategy_name == "window":
-        return WindowStrategy(client, session)
-    elif strategy_name == "facts":
-        return FactsStrategy(client, session)
-    
-    # Fallback to default
-    return DefaultStrategy(client, session)
+def get_strategy(client: DeepSeekClient, session: ChatSession) -> ContextStrategy:
+    """Returns the unified context strategy."""
+    return UnifiedStrategy(client, session)

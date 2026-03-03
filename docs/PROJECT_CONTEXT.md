@@ -88,19 +88,16 @@ Edit defaults in `deepseek_chat/core/config.py`:
 ## Notes
 - Streaming parses `data:` chunks.
 - Web UI Streams via SSE at `/stream`.
-- Web UI has an agent selector, a Strategy selector (for General Agent), and a Settings Modal ⚙️ (Temperature, Top P).
+- Web UI has an agent selector and a Settings Modal ⚙️ (Temperature, Top P).
 - **Web UI Features**:
   - Full Markdown parsing with syntax highlighting and ``Copy`` buttons for code blocks.
   - Generates answers dynamically, can be cancelled mid-stream using the **Stop 🛑** button.
   - Sidebar: Displays autonomous chat sessions (branches) with auto-generated titles. Users can switch between them and delete them.
-   - **Memory/Brain (🧠)**: Global Explicit Memory. Users can save working and long-term memory constraints shared across all sessions.
+   - **Memory/Brain (🧠)**: Global Explicit Memory. Users can save working and long-term memory constraints shared across all sessions. Working memory auto-clears on `/clear`, long-term persists forever.
   - **Profile (👤)**: Global User Profile. Modifies agent responses with strict styling, formatting, and constraints across all sessions.
-- **Context Strategies (GeneralAgent)**:
-  - `default` / `branching`: Folds old context into a running summary to save tokens.
-  - `window`: Strict N-message sliding window. Forgets older text entirely.
-  - `facts`: Extracts and strictly persists key user requirements in a background process.
+- **Automatic Context Optimization**: Combines sliding window (last N messages intact) + compression (summarize older messages) + auto-facts extraction (key facts auto-populate Working Memory during compression). No user configuration needed.
 - Web UI shows a stats panel with API usage, cost, and session cost (auto-hides when empty).
-- `AndroidAgent` injects an Android-focused `system` prompt, `GeneralAgent` is for general conversation and supports the distinct Context Strategies.
+- `AndroidAgent` injects an Android-focused `system` prompt, `GeneralAgent` is for general conversation.
 - API usage tokens (prompt/completion/total) are shown when provided by the provider.
 - If context length is exceeded, the client raises a clear `Context length exceeded` error.
 - `/provider` prints current provider and model.

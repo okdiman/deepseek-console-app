@@ -24,9 +24,10 @@
   - `AgentHook` ABC defines `before_stream()` and `after_stream()` lifecycle methods.
   - Hooks modify the system prompt or inject context without touching agent internals.
   - Current hooks: `MemoryInjectionHook`, `UserProfileHook`, `AutoTitleHook`.
-- **Strategy pattern** for context management:
-  - `ContextStrategy` ABC with `process_context()` and `build_history_messages()`.
-  - Strategies: `DefaultStrategy` (compression), `WindowStrategy`, `FactsStrategy`.
+- **Unified context strategy**:
+  - `UnifiedStrategy` combines sliding window + compression + auto-facts extraction.
+  - On compression trigger: single LLM call returns JSON with summary + extracted facts.
+  - Extracted facts auto-populate Working Memory.
 - **Explicit configuration**:
   - Optional request parameters are defined **only in code** (`OptionalRequestParams`).
 - **Pure data structures**:

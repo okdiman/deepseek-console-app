@@ -30,14 +30,14 @@ class BaseAgent:
         self._hooks = hooks or []
 
     async def stream_reply(
-        self, user_input: str, temperature: Optional[float] = None, top_p: Optional[float] = None, strategy: str = "default"
+        self, user_input: str, temperature: Optional[float] = None, top_p: Optional[float] = None
     ) -> AsyncGenerator[str, None]:
         """
         Stream the assistant reply. Executes pre-stream and post-stream hooks to manage side-effects.
         """
         self._session.add_user(user_input)
 
-        context_strategy = get_strategy(strategy, self._client, self._session)
+        context_strategy = get_strategy(self._client, self._session)
         await context_strategy.process_context(self.SYSTEM_PROMPT, user_input)
 
         system_msg = context_strategy.get_system_message_for_response()
@@ -72,13 +72,13 @@ class BaseAgent:
                 await hook.after_stream(self, response)
 
     async def ask(
-        self, user_input: str, temperature: Optional[float] = None, top_p: Optional[float] = None, strategy: str = "default"
+        self, user_input: str, temperature: Optional[float] = None, top_p: Optional[float] = None
     ) -> AgentResult:
         """
         Non-streaming helper that collects the full response using the Hook pipeline.
         """
         response_parts: List[str] = []
-        async for chunk in self.stream_reply(user_input, temperature=temperature, top_p=top_p, strategy=strategy):
+        async for chunk in self.stream_reply(user_input, temperature=temperature, top_p=top_p):
             response_parts.append(chunk)
 
         content = "".join(response_parts).strip()

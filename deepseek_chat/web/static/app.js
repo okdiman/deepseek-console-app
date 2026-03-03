@@ -33,7 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("chatForm");
   const messageInput = document.getElementById("message");
   const agentSelect = document.getElementById("agentSelect");
-  const strategySelect = document.getElementById("strategySelect");
+
   const statusEl = document.getElementById("status");
   const statsEl = document.getElementById("stats");
   const clearBtn = document.getElementById("clearBtn");
@@ -83,8 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let customSettings = {
     temperature: null,
     top_p: null,
-    agent: "general",
-    strategy: "default"
+    agent: "general"
   };
 
   function loadSettings() {
@@ -92,12 +91,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (saved) {
       try { customSettings = Object.assign(customSettings, JSON.parse(saved)); } catch (e) { }
     }
-    // Sync the selects visually with loaded settings if setting exists
     if (customSettings.agent) {
       agentSelect.value = customSettings.agent;
-    }
-    if (customSettings.strategy) {
-      strategySelect.value = customSettings.strategy;
     }
   }
   loadSettings();
@@ -301,21 +296,15 @@ document.addEventListener("DOMContentLoaded", () => {
     customSettings.temperature = parseFloat(temperatureSlider.value);
     customSettings.top_p = parseFloat(topPSlider.value);
     customSettings.agent = agentSelect.value;
-    customSettings.strategy = strategySelect.value;
     localStorage.setItem("deepseek_settings", JSON.stringify(customSettings));
     settingsModal.style.display = "none";
-
-    // We update UI dependencies if agent changes
-    toggleStrategyControls();
   });
 
   resetSettingsBtn.addEventListener("click", () => {
-    customSettings = { temperature: null, top_p: null, agent: "general", strategy: "default" };
+    customSettings = { temperature: null, top_p: null, agent: "general" };
     localStorage.removeItem("deepseek_settings");
     agentSelect.value = customSettings.agent;
-    strategySelect.value = customSettings.strategy;
     updateSettingsUI();
-    toggleStrategyControls();
   });
 
   chat.scrollTop = chat.scrollHeight;
@@ -453,7 +442,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  strategySelect.addEventListener("change", toggleBranchButtons);
+
 
   async function loadHistory(sessionId) {
     try {
@@ -578,7 +567,6 @@ document.addEventListener("DOMContentLoaded", () => {
     chat.scrollTop = chat.scrollHeight;
 
     const agentId = agentSelect.value || "general";
-    const strategyId = strategySelect.value || "default";
     const sessionId = currentSessionId || "default";
 
     let url =
@@ -586,8 +574,6 @@ document.addEventListener("DOMContentLoaded", () => {
       encodeURIComponent(text) +
       "&agent=" +
       encodeURIComponent(agentId) +
-      "&strategy=" +
-      encodeURIComponent(strategyId) +
       "&session_id=" +
       encodeURIComponent(sessionId);
 
@@ -686,24 +672,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  function toggleStrategyControls() {
-    const isGeneral = agentSelect.value === "general";
-    const strategyGroup = document.getElementById("strategyGroup");
-    if (strategyGroup) {
-      strategyGroup.style.display = isGeneral ? "block" : "none";
-    }
-    if (!isGeneral) {
-      // Hide branch buttons as well
-      document.querySelectorAll(".branch-btn").forEach(btn => {
-        btn.style.display = "none";
-      });
-    } else {
-      toggleBranchButtons();
-    }
-  }
-
-  agentSelect.addEventListener("change", toggleStrategyControls);
-
   // Re-render pre-rendered messages with Marked
   document.querySelectorAll(".msg .content").forEach(el => {
     if (el._rawText) {
@@ -716,6 +684,5 @@ document.addEventListener("DOMContentLoaded", () => {
   // Init
   loadSessions();
   bindBranchButtons();
-  toggleStrategyControls();
 });
 

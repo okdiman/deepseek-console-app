@@ -51,13 +51,12 @@ async def stream(
     request: Request,
     message: str = Query(..., min_length=1),
     agent: str = Query(get_default_agent_id(), min_length=1),
-    strategy: str = Query("default"),
     session_id: str = Query("default"),
     temperature: Optional[float] = Query(default=None),
     top_p: Optional[float] = Query(default=None),
 ) -> StreamingResponse:
     return sse_response(stream_events(
-        request=request, message=message, agent_id=agent, strategy=strategy, session_id=session_id,
+        request=request, message=message, agent_id=agent, session_id=session_id,
         temperature=temperature, top_p=top_p
     ))
 
