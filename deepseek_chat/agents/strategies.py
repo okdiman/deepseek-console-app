@@ -83,6 +83,10 @@ class DefaultStrategy(ContextStrategy):
             self._session.apply_compression(new_summary, keep_count)
 
     def build_history_messages(self, system_prompt: str) -> List[Dict[str, str]]:
+        memory_injection = self._session.memory.get_system_prompt_injection()
+        if memory_injection:
+            system_prompt += f"\n\n{memory_injection}"
+            
         history_messages = [{"role": "system", "content": system_prompt}]
         
         if self._session.summary:
@@ -120,6 +124,10 @@ class WindowStrategy(ContextStrategy):
         pass
 
     def build_history_messages(self, system_prompt: str) -> List[Dict[str, str]]:
+        memory_injection = self._session.memory.get_system_prompt_injection()
+        if memory_injection:
+            system_prompt += f"\n\n{memory_injection}"
+            
         history_messages = [{"role": "system", "content": system_prompt}]
         messages_to_include = self._session.messages()[-self.window_size:]
         history_messages.extend(messages_to_include)
@@ -171,8 +179,13 @@ class FactsStrategy(ContextStrategy):
             self._session.facts = new_facts
 
     def build_history_messages(self, system_prompt: str) -> List[Dict[str, str]]:
+        # Legacy facts strategy appends directly
         if self._session.facts:
             system_prompt += f"\n\nIMPORTANT FACTS TO REMEMBER:\n{self._session.facts}"
+            
+        memory_injection = self._session.memory.get_system_prompt_injection()
+        if memory_injection:
+            system_prompt += f"\n\n{memory_injection}"
 
         history_messages = [{"role": "system", "content": system_prompt}]
         messages_to_include = self._session.messages()[-self.window_size:]

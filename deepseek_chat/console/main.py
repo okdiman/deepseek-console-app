@@ -2,7 +2,7 @@
 import asyncio
 
 from deepseek_chat.console.app import ConsoleApp
-from deepseek_chat.core.android_agent import AndroidAgent
+from deepseek_chat.agents.android_agent import AndroidAgent
 from deepseek_chat.core.client import DeepSeekClient
 from deepseek_chat.core.config import load_config
 from deepseek_chat.core.session import ChatSession

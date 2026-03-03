@@ -29,6 +29,8 @@
       <div class="toolbar">
         <h1>DeepSeek Web Chat (Streaming)</h1>
         <div class="toolbar-actions">
+          <button id="profileBtn" type="button" class="icon-btn" title="Profile">👤</button>
+          <button id="memoryBtn" type="button" class="icon-btn" title="Memory">🧠</button>
           <button id="settingsBtn" type="button" class="icon-btn" title="Settings">⚙️</button>
           <button id="clearBtn" type="button">Clear</button>
         </div>
@@ -105,7 +107,105 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=6"></script>
+  <!-- Memory Modal -->
+  <div id="memoryModal" class="modal">
+    <div class="modal-content" style="width: 480px; max-width: 90vw;">
+      <span class="close-btn" id="closeMemory">&times;</span>
+      <h2>Brain / Memory</h2>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+        Add explicit facts and rules for this session. Memories are securely injected into the AI's prompting core.
+      </p>
+
+      <!-- Memory Tabs -->
+      <div class="memory-tabs"
+        style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px;">
+        <button id="tabWorking" class="tab-btn active"
+          style="background: none; border: none; color: var(--text-primary); cursor: pointer; font-weight: 500;">Working
+          Memory</button>
+        <button id="tabLongTerm" class="tab-btn"
+          style="background: none; border: none; color: var(--text-secondary); cursor: pointer;">Long-Term
+          Memory</button>
+      </div>
+
+      <!-- Working Memory Panel -->
+      <div id="panelWorking" class="memory-panel">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="workingInput" class="form-input" placeholder="Task constraints, context..."
+            style="flex: 1;">
+          <button id="addWorkingBtn" class="primary-btn">Add</button>
+        </div>
+        <ul id="workingList" class="memory-list"
+          style="list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto;">
+          <!-- Loaded via JS -->
+        </ul>
+      </div>
+
+      <!-- Long-Term Memory Panel -->
+      <div id="panelLongTerm" class="memory-panel" style="display: none;">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="longTermInput" class="form-input" placeholder="Rules, preferences, user info..."
+            style="flex: 1;">
+          <button id="addLongTermBtn" class="primary-btn">Add</button>
+        </div>
+        <ul id="longTermList" class="memory-list"
+          style="list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto;">
+          <!-- Loaded via JS -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div id="profileModal" class="modal">
+    <div class="modal-content" style="width: 480px; max-width: 90vw;">
+      <span class="close-btn" id="closeProfile">&times;</span>
+      <h2>User Profile 👤</h2>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+        Personalize your agent. This profile is globally saved and dictates how the agent responds to you across all
+        sessions.
+      </p>
+
+      <form id="profileForm">
+        <div class="setting-group">
+          <label for="profileName">Name</label>
+          <input type="text" id="profileName" class="form-input" placeholder="e.g. Dmitriy" style="width: 100%;">
+        </div>
+
+        <div class="setting-group">
+          <label for="profileRole">Role / Profession</label>
+          <input type="text" id="profileRole" class="form-input" placeholder="e.g. Senior Software Engineer"
+            style="width: 100%;">
+        </div>
+
+        <div class="setting-group">
+          <label for="profileStyle">Style Preferences</label>
+          <textarea id="profileStyle" class="form-input" rows="2"
+            placeholder="e.g. Direct, concise, no fluff, use bullet points"
+            style="width: 100%; resize: vertical;"></textarea>
+        </div>
+
+        <div class="setting-group">
+          <label for="profileFormatting">Formatting Rules</label>
+          <textarea id="profileFormatting" class="form-input" rows="2"
+            placeholder="e.g. Always output code in Markdown blocks" style="width: 100%; resize: vertical;"></textarea>
+        </div>
+
+        <div class="setting-group">
+          <label for="profileConstraints">Global Constraints</label>
+          <textarea id="profileConstraints" class="form-input" rows="2"
+            placeholder="e.g. Never use deprecated libraries" style="width: 100%; resize: vertical;"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <span id="profileStatusMsg"
+            style="font-size: 12px; color: var(--accent); align-self: center; margin-right: auto; opacity: 0; transition: opacity 0.3s;">Saved!</span>
+          <button id="saveProfileBtn" type="button" class="primary-btn">Save Profile</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=7"></script>
 </body>
 
 </html>

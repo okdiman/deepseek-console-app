@@ -46,6 +46,33 @@ document.addEventListener("DOMContentLoaded", () => {
   const temperatureVal = document.getElementById("temperatureVal");
   const topPSlider = document.getElementById("topPSlider");
   const topPVal = document.getElementById("topPVal");
+  // Memory Modal elements
+  const memoryBtn = document.getElementById("memoryBtn");
+  const memoryModal = document.getElementById("memoryModal");
+  const closeMemory = document.getElementById("closeMemory");
+  const tabWorking = document.getElementById("tabWorking");
+  const tabLongTerm = document.getElementById("tabLongTerm");
+  const panelWorking = document.getElementById("panelWorking");
+  const panelLongTerm = document.getElementById("panelLongTerm");
+  const workingInput = document.getElementById("workingInput");
+  const addWorkingBtn = document.getElementById("addWorkingBtn");
+  const workingList = document.getElementById("workingList");
+  const longTermInput = document.getElementById("longTermInput");
+  const addLongTermBtn = document.getElementById("addLongTermBtn");
+  const longTermList = document.getElementById("longTermList");
+
+  // Profile Modal elements
+  const profileBtn = document.getElementById("profileBtn");
+  const profileModal = document.getElementById("profileModal");
+  const closeProfile = document.getElementById("closeProfile");
+  const profileName = document.getElementById("profileName");
+  const profileRole = document.getElementById("profileRole");
+  const profileStyle = document.getElementById("profileStyle");
+  const profileFormatting = document.getElementById("profileFormatting");
+  const profileConstraints = document.getElementById("profileConstraints");
+  const saveProfileBtn = document.getElementById("saveProfileBtn");
+  const profileStatusMsg = document.getElementById("profileStatusMsg");
+
   const saveSettingsBtn = document.getElementById("saveSettingsBtn");
   const resetSettingsBtn = document.getElementById("resetSettingsBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -111,6 +138,167 @@ document.addEventListener("DOMContentLoaded", () => {
   topPSlider.addEventListener("input", (e) => {
     topPVal.textContent = e.target.value;
   });
+
+  // Memory Modal Logic
+  if (memoryBtn) {
+    memoryBtn.addEventListener("click", () => {
+      loadMemory();
+      memoryModal.style.display = "block";
+    });
+  }
+
+  if (closeMemory) {
+    closeMemory.addEventListener("click", () => {
+      memoryModal.style.display = "none";
+    });
+  }
+
+  tabWorking.addEventListener("click", () => {
+    tabWorking.classList.add("active");
+    tabWorking.style.color = "var(--text-primary)";
+    tabWorking.style.fontWeight = "500";
+    tabLongTerm.classList.remove("active");
+    tabLongTerm.style.color = "var(--text-secondary)";
+    tabLongTerm.style.fontWeight = "normal";
+    panelWorking.style.display = "block";
+    panelLongTerm.style.display = "none";
+  });
+
+  tabLongTerm.addEventListener("click", () => {
+    tabLongTerm.classList.add("active");
+    tabLongTerm.style.color = "var(--text-primary)";
+    tabLongTerm.style.fontWeight = "500";
+    tabWorking.classList.remove("active");
+    tabWorking.style.color = "var(--text-secondary)";
+    tabWorking.style.fontWeight = "normal";
+    panelLongTerm.style.display = "block";
+    panelWorking.style.display = "none";
+  });
+
+  async function loadMemory() {
+    try {
+      const sessionId = currentSessionId || "default";
+      const res = await fetch(`/memory?session_id=${encodeURIComponent(sessionId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        renderMemoryList(workingList, data.working_memory || [], "working");
+        renderMemoryList(longTermList, data.long_term_memory || [], "long_term");
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  function renderMemoryList(container, items, layer) {
+    container.innerHTML = "";
+    items.forEach((fact, index) => {
+      const li = document.createElement("li");
+
+      const span = document.createElement("span");
+      span.textContent = fact;
+      li.appendChild(span);
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "memory-del-btn";
+      delBtn.innerHTML = "🗑";
+      delBtn.title = "Delete memory";
+      delBtn.addEventListener("click", async () => {
+        const sessionId = currentSessionId || "default";
+        const res = await fetch(`/memory/${layer}/${index}?session_id=${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+        if (res.ok) {
+          loadMemory();
+        }
+      });
+      li.appendChild(delBtn);
+
+      container.appendChild(li);
+    });
+  }
+
+  async function addMemoryItem(inputEl, layer) {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    const sessionId = currentSessionId || "default";
+    try {
+      const res = await fetch(`/memory/${layer}?session_id=${encodeURIComponent(sessionId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: text })
+      });
+      if (res.ok) {
+        inputEl.value = "";
+        loadMemory();
+      }
+    } catch (e) {
+      console.error("Failed to add memory", e);
+    }
+  }
+
+  addWorkingBtn.addEventListener("click", () => addMemoryItem(workingInput, "working"));
+  workingInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") addMemoryItem(workingInput, "working");
+  });
+
+  addLongTermBtn.addEventListener("click", () => addMemoryItem(longTermInput, "long_term"));
+  longTermInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") addMemoryItem(longTermInput, "long_term");
+  });
+
+  // Profile Modal Logic
+  async function loadProfile() {
+    try {
+      const res = await fetch("/profile");
+      if (res.ok) {
+        const data = await res.json();
+        profileName.value = data.name || "";
+        profileRole.value = data.role || "";
+        profileStyle.value = data.style_preferences || "";
+        profileFormatting.value = data.formatting_rules || "";
+        profileConstraints.value = data.constraints || "";
+      }
+    } catch (e) {
+      console.error("Failed to load profile", e);
+    }
+  }
+
+  if (profileBtn) {
+    profileBtn.addEventListener("click", () => {
+      loadProfile();
+      profileModal.style.display = "block";
+    });
+  }
+
+  if (closeProfile) {
+    closeProfile.addEventListener("click", () => {
+      profileModal.style.display = "none";
+    });
+  }
+
+  if (saveProfileBtn) {
+    saveProfileBtn.addEventListener("click", async () => {
+      const payload = {
+        name: profileName.value.trim(),
+        role: profileRole.value.trim(),
+        style_preferences: profileStyle.value.trim(),
+        formatting_rules: profileFormatting.value.trim(),
+        constraints: profileConstraints.value.trim()
+      };
+
+      try {
+        const res = await fetch("/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          profileStatusMsg.style.opacity = "1";
+          setTimeout(() => profileStatusMsg.style.opacity = "0", 2500);
+        }
+      } catch (e) {
+        console.error("Failed to save profile", e);
+      }
+    });
+  }
 
   saveSettingsBtn.addEventListener("click", () => {
     customSettings.temperature = parseFloat(temperatureSlider.value);

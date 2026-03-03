@@ -25,6 +25,8 @@ deepseek-chat/
       client.py
       config.py
       session.py
+      memory.py
+      profile.py
       stream_printer.py
       token_counter.py
       comparing/
@@ -115,6 +117,8 @@ python3 -m deepseek_chat.web.app
 
 Notes:
 - Streams via SSE at `/stream`
+- **Memory (🧠)**: Session-specific explicit memory. You can permanently save `working_memory` and `long_term_memory` rules into independent chat branches.
+- **Profile (👤)**: A Globally stored Identity layer enabling persistent rule-following. Set your Name, Role, Style Preferences, and Constraints to be uniformly applied across all future chats regardless of agent or session.
 - Agent selector; responses show the active agent name
 - Stats panel shows local tokens, API usage, cost, and session cost (auto-hides when empty)
 

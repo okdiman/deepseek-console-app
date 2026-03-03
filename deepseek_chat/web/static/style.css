@@ -587,3 +587,64 @@ body {
 .stop-btn:hover {
   background: #cc4444;
 }
+
+/* Memory Styles */
+.form-input {
+  box-sizing: border-box;
+  background: var(--bg-main);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.primary-btn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.primary-btn:hover {
+  opacity: 0.9;
+}
+
+.memory-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.memory-list li:last-child {
+  border-bottom: none;
+}
+
+.memory-del-btn {
+  background: transparent;
+  border: none;
+  color: var(--error);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.memory-list li:hover .memory-del-btn {
+  opacity: 1;
+}
+
+.memory-del-btn:hover {
+  background: rgba(229, 90, 90, 0.1);
+}

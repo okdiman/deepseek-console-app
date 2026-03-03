@@ -37,9 +37,13 @@ Console app for streaming chat with DeepSeek Chat Completions API, using an Andr
 - `deepseek_chat/web/templates/` — HTML templates
 - `deepseek_chat/core/config.py` — config + optional params (code-only)
 - `deepseek_chat/core/client.py` — streaming HTTP client
+- `deepseek_chat/agents/base_agent.py` — Base agent orchestrator running Hook pipelines
+- `deepseek_chat/agents/hooks.py` — AgentHooks (TokenTracker, MemoryInjection, UserProfile, AutoTitle)
 - `deepseek_chat/agents/android_agent.py` — Android-focused agent + system prompt
 - `deepseek_chat/agents/general_agent.py` — General-purpose agent
-- `deepseek_chat/core/session.py` — message history (with compression support)
+- `deepseek_chat/core/session.py` — message history, branching, and embedded MemoryStore
+- `deepseek_chat/core/memory.py` — explicit memory layers (working, long_term)
+- `deepseek_chat/core/profile.py` — global UserProfile model (`~/.deepseek_chat/profile.json`)
 - `deepseek_chat/core/stream_printer.py` — stall indicator
 - `deepseek_chat/core/comparing/model_compare.py` — сравнение ответов разных моделей
 
@@ -89,6 +93,8 @@ Edit defaults in `deepseek_chat/core/config.py`:
   - Full Markdown parsing with syntax highlighting and ``Copy`` buttons for code blocks.
   - Generates answers dynamically, can be cancelled mid-stream using the **Stop 🛑** button.
   - Sidebar: Displays autonomous chat sessions (branches) with auto-generated titles. Users can switch between them and delete them.
+  - **Memory/Brain (🧠)**: Session-specific Explicit Memory. Users can save working and long-term memory constraints.
+  - **Profile (👤)**: Global User Profile. Modifies agent responses with strict styling, formatting, and constraints across all sessions.
 - **Context Strategies (GeneralAgent)**:
   - `default`: Folds old context into a running summary to save tokens.
   - `window`: Strict N-message sliding window. Forgets older text entirely.
@@ -128,11 +134,17 @@ Structure:
   "model": "deepseek-chat",
   "updated_at": "2025-01-01T12:00:00Z",
   "summary": "This is a summary of older compressed messages.",
+  "working_memory": ["Need to optimize DB queries"],
+  "long_term_memory": ["Project uses Python 3.10+"],
   "messages": [
     {"role": "user", "content": "Привет"},
     {"role": "assistant", "content": "Привет! Чем помочь?"}
   ]
 }
+
+## Global Profile File
+Default path: `~/.deepseek_chat/profile.json`
+Structure corresponds to `UserProfile` parameters like `name`, `role`, `style_preferences`, `formatting_rules`, and `constraints`.
 
 ## Quick Verification
 1. Run the app, send a couple of messages.

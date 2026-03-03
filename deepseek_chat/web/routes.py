@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from pydantic import BaseModel
 
 from .state import (
     create_branch,
@@ -14,10 +15,14 @@ from .state import (
     get_session,
     reset_session_cost_usd,
 )
+from ..core.profile import UserProfile
 from .streaming import sse_response, stream_events
 from .views import render_index
 
 router = APIRouter()
+
+class MemoryContent(BaseModel):
+    content: str
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -81,3 +86,51 @@ async def create_new_branch(
 async def get_history(session_id: str = Query("default")) -> JSONResponse:
     session = get_session(session_id)
     return JSONResponse({"messages": session.messages(), "summary": session.summary, "facts": session.facts})
+
+@router.get("/memory")
+async def get_memory(session_id: str = Query("default")) -> JSONResponse:
+    session = get_session(session_id)
+    return JSONResponse(session.memory.to_dict())
+
+@router.post("/memory/{layer}")
+async def add_memory(layer: str, payload: MemoryContent, session_id: str = Query("default")) -> JSONResponse:
+    session = get_session(session_id)
+    if layer == "working":
+        session.memory.add_working_memory(payload.content)
+    elif layer == "long_term":
+        session.memory.add_long_term_memory(payload.content)
+    else:
+        return JSONResponse({"ok": False, "error": "Invalid memory layer"}, status_code=400)
+        
+    config = get_config()
+    if config.persist_context:
+        session.save(config.context_path, config.provider, config.model)
+    return JSONResponse({"ok": True})
+
+@router.delete("/memory/{layer}/{index}")
+async def remove_memory(layer: str, index: int, session_id: str = Query("default")) -> JSONResponse:
+    session = get_session(session_id)
+    if layer == "working":
+        session.memory.remove_working_memory(index)
+    elif layer == "long_term":
+        session.memory.remove_long_term_memory(index)
+    else:
+        return JSONResponse({"ok": False, "error": "Invalid memory layer"}, status_code=400)
+        
+    config = get_config()
+    if config.persist_context:
+        session.save(config.context_path, config.provider, config.model)
+    return JSONResponse({"ok": True})
+
+
+@router.get("/profile")
+async def get_profile() -> JSONResponse:
+    profile = UserProfile.load()
+    return JSONResponse(profile.model_dump())
+
+@router.post("/profile")
+async def update_profile(profile_data: dict) -> JSONResponse:
+    profile = UserProfile(**profile_data)
+    profile.save()
+    return JSONResponse({"ok": True})
+
