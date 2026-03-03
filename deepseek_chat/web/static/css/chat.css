@@ -1,0 +1,215 @@
+/* ── Chat area: messages, bubbles, markdown, code blocks ── */
+.container.main-content {
+    flex: 1;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: var(--bg-main);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toolbar h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#clearBtn {
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+#clearBtn:hover {
+    background: var(--bg-panel);
+    color: var(--text-primary);
+}
+
+#chat {
+    background: transparent;
+    padding: 16px max(24px, 5%);
+    min-height: 0;
+    margin: 0;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    scroll-behavior: smooth;
+}
+
+.msg {
+    display: flex;
+    width: 100%;
+    margin-bottom: 24px;
+    position: relative;
+}
+
+.msg.user {
+    justify-content: flex-end;
+}
+
+.msg.assistant {
+    justify-content: flex-start;
+}
+
+.msg-inner {
+    max-width: 85%;
+    display: flex;
+    flex-direction: column;
+}
+
+.msg.user .msg-inner {
+    align-items: flex-end;
+}
+
+.meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    margin-left: 4px;
+    margin-right: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.msg.user .content {
+    background: var(--user-bubble);
+    color: var(--user-text);
+    padding: 8px 16px 4px 16px;
+    border-radius: 18px 18px 4px 18px;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.msg.assistant .content {
+    background: var(--ai-bubble);
+    color: var(--text-primary);
+    padding: 0 4px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.msg.assistant .msg-inner {
+    align-items: flex-start;
+}
+
+.branch-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.msg:hover .branch-btn {
+    opacity: 1;
+}
+
+.branch-btn:hover {
+    background: var(--border-subtle);
+    color: var(--text-primary);
+}
+
+/* Markdown and Code overrides */
+.markdown-body {
+    font-family: inherit;
+}
+
+.markdown-body p {
+    margin: 0 0 10px 0;
+}
+
+.markdown-body pre {
+    background: var(--bg-sidebar);
+    padding: 12px;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid var(--border-subtle);
+    margin: 10px 0;
+}
+
+.markdown-body code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.markdown-body pre code {
+    background: transparent;
+    padding: 0;
+    white-space: pre;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #2a313f;
+    color: #ccc;
+    border: 1px solid #3b4255;
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.copy-btn:hover {
+    opacity: 1;
+    background: #3b4255;
+}
+
+.markdown-body table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+}
+
+.markdown-body th,
+.markdown-body td {
+    border: 1px solid var(--border-subtle);
+    padding: 6px 12px;
+}
+
+.markdown-body th {
+    background: var(--bg-sidebar);
+}

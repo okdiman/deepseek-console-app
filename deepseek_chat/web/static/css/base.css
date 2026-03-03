@@ -1,0 +1,36 @@
+/* ── Design tokens, reset, layout shell ── */
+:root {
+    --bg-main: #181a20;
+    --bg-sidebar: #101216;
+    --bg-panel: #22252e;
+    --border-subtle: #2d323e;
+    --text-primary: #e6e6e6;
+    --text-secondary: #8c92a3;
+    --user-bubble: #344055;
+    --user-text: #ffffff;
+    --ai-bubble: transparent;
+    --accent: #5e81d4;
+    --error: #e55a5a;
+}
+
+html,
+body {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    overflow: hidden;
+    display: block;
+}
+
+.layout {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
