@@ -366,6 +366,11 @@ body {
   height: 16px;
 }
 
+#submitBtn svg {
+  /* Optically center the paper airplane icon */
+  transform: translate(-1px, 1px);
+}
+
 .action-btn.stop {
   background: var(--error);
   color: #fff;
@@ -540,11 +545,12 @@ body {
   line-height: 1;
   color: #aaa;
   cursor: pointer;
+  transition: transform 0.2s ease, color 0.2s ease;
 }
 
 .icon-btn:hover {
   color: #fff;
-  background: var(--bg-panel);
+  transform: scale(1.15);
 }
 
 .secondary-btn {

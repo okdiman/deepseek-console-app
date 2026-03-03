@@ -130,17 +130,6 @@ class ConsoleApp:
                         config.context_path, config.provider, config.model
                     )
 
-                token_stats = self._agent.last_token_stats()
-                if token_stats:
-                    req = token_stats.request
-                    hist = token_stats.history
-                    resp = token_stats.response
-                    print(
-                        "🧮 Tokens (local): "
-                        f"request={req.tokens} ({req.method}), "
-                        f"history={hist.tokens} ({hist.method}), "
-                        f"response={resp.tokens} ({resp.method})"
-                    )
 
                 metrics = self._client.last_metrics()
                 if metrics:

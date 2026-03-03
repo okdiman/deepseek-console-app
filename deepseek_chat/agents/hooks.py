@@ -79,46 +79,6 @@ class MemoryInjectionHook(AgentHook):
         pass
 
 
-class TokenTrackerHook(AgentHook):
-    """
-    Tracks and stores the token sizes of requests, histories, and responses.
-    This hook requires `count_messages_tokens` and `count_text_tokens`.
-    """
-    def __init__(self):
-        self._last_stats = None
-        self._request_count = None
-        self._history_count = None
-
-    def get_last_stats(self) -> Any:
-        return self._last_stats
-
-    async def before_stream(self, agent: BaseAgent, user_input: str, system_prompt: str, history: List[Dict[str, str]]) -> str:
-        from ..core.token_counter import count_messages_tokens
-
-        model = agent._client._config.model
-        request_messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_input},
-        ]
-        self._request_count = count_messages_tokens(request_messages, model=model)
-        self._history_count = count_messages_tokens(history, model=model)
-        return system_prompt
-
-    async def after_stream(self, agent: BaseAgent, full_response: str) -> None:
-        from ..core.token_counter import count_text_tokens
-        from .base_agent import TokenStats
-
-        if not self._request_count or not self._history_count:
-            return
-
-        model = agent._client._config.model
-        response_count = count_text_tokens(full_response, model=model)
-
-        self._last_stats = TokenStats(
-            request=self._request_count,
-            history=self._history_count,
-            response=response_count,
-        )
 
 
 class AutoTitleHook(AgentHook):

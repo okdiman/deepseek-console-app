@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .base_agent import BaseAgent
-from .hooks import TokenTrackerHook, MemoryInjectionHook, AutoTitleHook, UserProfileHook
+from .hooks import MemoryInjectionHook, AutoTitleHook, UserProfileHook
 
 SYSTEM_PROMPT = (
     "You are a senior Android developer with 10 years of professional experience. "
@@ -19,7 +19,6 @@ class AndroidAgent(BaseAgent):
 
     def __init__(self, client, session):
         hooks = [
-            TokenTrackerHook(),
             MemoryInjectionHook(),
             UserProfileHook(),
             AutoTitleHook()

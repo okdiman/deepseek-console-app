@@ -5,23 +5,14 @@ from typing import AsyncGenerator, List, Optional
 
 from ..core.client import DeepSeekClient, StreamMetrics
 from ..core.session import ChatSession
-from ..core.token_counter import TokenCount
 from .strategies import get_strategy
-from .hooks import AgentHook, TokenTrackerHook
-
-
-@dataclass(frozen=True)
-class TokenStats:
-    request: TokenCount
-    history: TokenCount
-    response: TokenCount
+from .hooks import AgentHook
 
 
 @dataclass(frozen=True)
 class AgentResult:
     content: str
     metrics: Optional[StreamMetrics]
-    token_stats: Optional[TokenStats]
 
 
 class BaseAgent:
@@ -37,13 +28,6 @@ class BaseAgent:
         self._client = client
         self._session = session
         self._hooks = hooks or []
-
-    def last_token_stats(self) -> Optional[TokenStats]:
-        # Helper to find token tracking hook if it exists
-        for hook in self._hooks:
-            if hasattr(hook, "get_last_stats"):
-                return hook.get_last_stats()
-        return None
 
     async def stream_reply(
         self, user_input: str, temperature: Optional[float] = None, top_p: Optional[float] = None, strategy: str = "default"
@@ -102,5 +86,4 @@ class BaseAgent:
         return AgentResult(
             content=content,
             metrics=metrics,
-            token_stats=self.last_token_stats(),
         )

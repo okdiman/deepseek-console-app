@@ -534,54 +534,33 @@ document.addEventListener("DOMContentLoaded", () => {
   function formatStats(stats) {
     if (!stats) return "";
     const parts = [];
-    if (stats.tokens_local) {
-      const t = stats.tokens_local;
-      parts.push(
-        "Tokens (local): request=" +
-        t.request +
-        " (" +
-        t.request_method +
-        "), history=" +
-        t.history +
-        " (" +
-        t.history_method +
-        "), response=" +
-        t.response +
-        " (" +
-        t.response_method +
-        ")"
-      );
+
+    if (stats.duration_ms != null) {
+      parts.push(`⏱ ${(stats.duration_ms / 1000).toFixed(1)}s`);
     }
-    const usageParts = [];
-    if (stats.prompt_tokens != null) usageParts.push("prompt=" + stats.prompt_tokens);
-    if (stats.completion_tokens != null)
-      usageParts.push("completion=" + stats.completion_tokens);
-    if (stats.total_tokens != null) usageParts.push("total=" + stats.total_tokens);
-    const duration =
-      stats.duration_ms != null ? stats.duration_ms + " ms" : "n/a";
-    const usage = usageParts.length ? usageParts.join(", ") : "n/a";
-    const cost =
-      stats.cost_usd != null ? "$" + stats.cost_usd.toFixed(6) : "n/a";
-    const sessionCost =
-      stats.session_cost_usd != null ? "$" + stats.session_cost_usd.toFixed(6) : "n/a";
-    if (
-      stats.duration_ms != null ||
-      usageParts.length ||
-      stats.cost_usd != null ||
-      stats.session_cost_usd != null
-    ) {
-      parts.push(
-        "Time: " +
-        duration +
-        " | Tokens: " +
-        usage +
-        " | Cost: " +
-        cost +
-        " | Session Cost: " +
-        sessionCost
-      );
+
+    let totalTokens = null;
+    if (stats.total_tokens != null) {
+      totalTokens = stats.total_tokens;
+    } else if (stats.tokens_local) {
+      totalTokens = stats.tokens_local.request + stats.tokens_local.history + stats.tokens_local.response;
     }
-    return parts.join(" | ");
+
+    if (totalTokens != null) {
+      parts.push(`🔤 ${totalTokens} ctx`);
+    }
+
+    if (stats.cost_usd != null) {
+      let costStr = `💰 $${stats.cost_usd.toFixed(5)}`;
+      if (stats.session_cost_usd != null) {
+        costStr += ` (Total $${stats.session_cost_usd.toFixed(4)})`;
+      }
+      parts.push(costStr);
+    } else if (stats.session_cost_usd != null) {
+      parts.push(`💰 Total $${stats.session_cost_usd.toFixed(4)}`);
+    }
+
+    return parts.join(" • ");
   }
 
   form.addEventListener("submit", (e) => {

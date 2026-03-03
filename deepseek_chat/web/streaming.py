@@ -57,16 +57,6 @@ async def stream_events(
                 yield sse_event({"delta": chunk})
 
         stats: Dict[str, Any] = {}
-        token_stats = selected_agent.last_token_stats()
-        if token_stats:
-            stats["tokens_local"] = {
-                "request": token_stats.request.tokens,
-                "request_method": token_stats.request.method,
-                "history": token_stats.history.tokens,
-                "history_method": token_stats.history.method,
-                "response": token_stats.response.tokens,
-                "response_method": token_stats.response.method,
-            }
 
         metrics = client.last_metrics()
         if metrics:
