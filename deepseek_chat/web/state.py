@@ -8,6 +8,7 @@ from ..agents.general_agent import GeneralAgent
 from ..core.client import DeepSeekClient
 from ..core.config import ClientConfig, load_config
 from ..core.session import ChatSession
+from ..core.task_state import TaskStateMachine
 
 _config: ClientConfig = load_config()
 
@@ -39,6 +40,8 @@ _sessions: Dict[str, ChatSession] = {
 }
 _active_strategy: str = "default"
 
+_task_machines: Dict[str, TaskStateMachine] = {}
+
 _AGENT_REGISTRY = {
     "android": "Android Agent",
     "general": "General Agent",
@@ -46,9 +49,10 @@ _AGENT_REGISTRY = {
 
 def get_agent(agent_id: str, session_id: str = "default") -> AndroidAgent | GeneralAgent:
     session = get_session(session_id)
+    task_machine = get_task_machine(session_id)
     if agent_id == "android":
-        return AndroidAgent(_client, session)
-    return GeneralAgent(_client, session)
+        return AndroidAgent(_client, session, task_machine=task_machine)
+    return GeneralAgent(_client, session, task_machine=task_machine)
 
 _DEFAULT_AGENT_ID = "general"
 
@@ -78,6 +82,12 @@ def create_branch(parent_id: str, message_index: int, new_branch_id: str) -> Non
 def delete_session(session_id: str) -> None:
     if session_id in _sessions:
         del _sessions[session_id]
+    _task_machines.pop(session_id, None)
+
+def get_task_machine(session_id: str = "default") -> TaskStateMachine:
+    if session_id not in _task_machines:
+        _task_machines[session_id] = TaskStateMachine()
+    return _task_machines[session_id]
 
 def get_agent_registry() -> Dict[str, str]:
     return dict(_AGENT_REGISTRY)

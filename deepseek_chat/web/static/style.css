@@ -9,3 +9,5 @@
 /* Footer, input capsule, buttons */
 @import url("css/modals.css");
 /* Settings, memory, profile modals */
+@import url("css/task.css");
+/* Task state panel */

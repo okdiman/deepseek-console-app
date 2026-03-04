@@ -13,6 +13,7 @@ from .state import (
     get_config,
     get_default_agent_id,
     get_session,
+    get_task_machine,
 )
 from .cost_tracker import reset_session_cost_usd
 from ..core.profile import UserProfile
@@ -24,6 +25,9 @@ router = APIRouter()
 
 class MemoryContent(BaseModel):
     content: str
+
+class TaskGoal(BaseModel):
+    goal: str
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -43,6 +47,7 @@ async def clear(session_id: str = Query("default")) -> JSONResponse:
     memory.save()
     if config.persist_context:
         session.save(config.context_path, config.provider, config.model)
+    get_task_machine(session_id).reset()
     return JSONResponse({"ok": True})
 
 
@@ -134,3 +139,61 @@ async def update_profile(profile_data: dict) -> JSONResponse:
     profile.save()
     return JSONResponse({"ok": True})
 
+
+# ── Task State Machine endpoints ─────────────────────────────
+
+@router.get("/task")
+async def get_task(session_id: str = Query("default")) -> JSONResponse:
+    tm = get_task_machine(session_id)
+    return JSONResponse(tm.state.to_dict())
+
+@router.post("/task/start")
+async def start_task(payload: TaskGoal, session_id: str = Query("default")) -> JSONResponse:
+    tm = get_task_machine(session_id)
+    try:
+        tm.start_task(payload.goal)
+        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+@router.post("/task/approve")
+async def approve_task_plan(session_id: str = Query("default")) -> JSONResponse:
+    tm = get_task_machine(session_id)
+    try:
+        tm.approve_plan()
+        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+@router.post("/task/pause")
+async def pause_task(session_id: str = Query("default")) -> JSONResponse:
+    tm = get_task_machine(session_id)
+    try:
+        tm.pause()
+        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+@router.post("/task/resume")
+async def resume_task(session_id: str = Query("default")) -> JSONResponse:
+    tm = get_task_machine(session_id)
+    try:
+        tm.resume()
+        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+@router.post("/task/complete")
+async def complete_task(session_id: str = Query("default")) -> JSONResponse:
+    tm = get_task_machine(session_id)
+    try:
+        tm.complete()
+        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+@router.post("/task/reset")
+async def reset_task(session_id: str = Query("default")) -> JSONResponse:
+    tm = get_task_machine(session_id)
+    tm.reset()
+    return JSONResponse({"ok": True, "state": tm.state.to_dict()})

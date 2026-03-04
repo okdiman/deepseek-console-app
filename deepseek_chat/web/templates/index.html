@@ -35,6 +35,30 @@
           <button id="clearBtn" type="button">Clear</button>
         </div>
       </div>
+
+      <!-- Task State Panel (visible only in Agent mode when task is active) -->
+      <div id="taskPanel" class="task-panel">
+        <div id="taskActive">
+          <div class="task-header">
+            <div class="task-title">
+              <span id="taskName">—</span>
+              <span id="taskPhaseBadge" class="task-phase-badge">idle</span>
+            </div>
+            <div class="task-header-controls">
+              <button class="task-btn" id="taskCollapseBtn" title="Collapse"><span class="chevron">▾</span></button>
+              <button class="task-btn danger" id="taskResetBtn" title="Reset task">✕</button>
+            </div>
+          </div>
+          <div id="taskBody">
+            <div class="task-progress">
+              <div class="task-progress-fill" id="taskProgressFill" style="width:0%"></div>
+            </div>
+            <ul class="task-steps" id="taskStepsList"></ul>
+            <div class="task-actions" id="taskActions"></div>
+          </div>
+        </div>
+      </div>
+
       <div id="chat">
         {{ rendered_messages|safe }}
       </div>
@@ -59,6 +83,10 @@
                 </svg>
               </button>
             </div>
+          </div>
+          <div class="mode-toggle">
+            <button type="button" id="modeChatBtn" class="mode-btn active">💬 Chat</button>
+            <button type="button" id="modeAgentBtn" class="mode-btn">🤖 Agent</button>
           </div>
         </form>
         <div class="status" id="status"></div>
@@ -196,7 +224,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=9"></script>
+  <script src="/static/app.js?v=15"></script>
 </body>
 
 </html>

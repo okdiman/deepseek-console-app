@@ -11,6 +11,7 @@ from .state import (
     get_client,
     get_config,
     get_session,
+    get_task_machine,
 )
 from .cost_tracker import add_session_cost_usd, get_session_cost_usd
 
@@ -44,10 +45,19 @@ async def stream_events(
     selected_agent = get_agent(agent_id, session_id=session_id)
 
     try:
-        async for chunk in selected_agent.stream_reply(message, temperature=temperature, top_p=top_p):
-            if await request.is_disconnected():
-                break
-            yield sse_event({"delta": chunk})
+        # Explicitly manage the generator so we can guarantee cleanup order.
+        # The agent's stream_reply uses try/finally to run after_stream hooks
+        # (which update task state). We must ensure the generator's finally
+        # block completes BEFORE we read the task state.
+        gen = selected_agent.stream_reply(message, temperature=temperature, top_p=top_p)
+        try:
+            async for chunk in gen:
+                if await request.is_disconnected():
+                    break
+                yield sse_event({"delta": chunk})
+        finally:
+            # Force generator cleanup — runs after_stream hooks in finally block
+            await gen.aclose()
 
         stats: Dict[str, Any] = {}
 
@@ -65,9 +75,15 @@ async def stream_events(
         if stats:
             yield sse_event({"stats": stats})
 
+        # Now that the generator is fully closed and after_stream hooks have run,
+        # the task state (plan, phase transitions) is guaranteed to be up-to-date.
+        tm = get_task_machine(session_id)
+        yield sse_event({"task_state": tm.state.to_dict()})
+
         yield sse_event({"done": True})
     except Exception as exc:
         yield sse_event({"error": str(exc)})
     finally:
         if config.persist_context:
             session.save(config.context_path, config.provider, config.model)
+

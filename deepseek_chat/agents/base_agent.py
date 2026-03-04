@@ -5,6 +5,7 @@ from typing import AsyncGenerator, List, Optional
 
 from ..core.client import DeepSeekClient, StreamMetrics
 from ..core.session import ChatSession
+from ..core.task_state import TaskStateMachine
 from .strategies import get_strategy
 from .hooks import AgentHook
 

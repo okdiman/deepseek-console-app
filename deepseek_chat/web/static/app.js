@@ -549,10 +549,33 @@ document.addEventListener("DOMContentLoaded", () => {
     return parts.join(" • ");
   }
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = messageInput.value.trim();
     if (!text) return;
+
+    const sessionId = currentSessionId || "default";
+
+    // In Agent mode, auto-start task if idle
+    if (inputMode === "agent") {
+      try {
+        const taskRes = await fetch(`/task?session_id=${encodeURIComponent(sessionId)}`);
+        if (taskRes.ok) {
+          const taskData = await taskRes.json();
+          if (taskData.phase === "idle") {
+            const startRes = await fetch(`/task/start?session_id=${encodeURIComponent(sessionId)}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ goal: text })
+            });
+            if (startRes.ok) {
+              const startData = await startRes.json();
+              if (startData.state) renderTaskState(startData.state);
+            }
+          }
+        }
+      } catch (err) { console.error("Task auto-start failed", err); }
+    }
 
     addMessage("user", text, "You");
     const agentLabel =
@@ -567,7 +590,6 @@ document.addEventListener("DOMContentLoaded", () => {
     chat.scrollTop = chat.scrollHeight;
 
     const agentId = agentSelect.value || "general";
-    const sessionId = currentSessionId || "default";
 
     let url =
       "/stream?message=" +
@@ -594,7 +616,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = JSON.parse(event.data);
       if (payload.delta) {
         assistantContent._rawText += payload.delta;
-        assistantContent.innerHTML = marked.parse(assistantContent._rawText);
+        // Strip internal task markers before displaying
+        const displayText = assistantContent._rawText
+          .replace(/\[PLAN_READY\]/gi, "")
+          .replace(/\[STEP_DONE\]/gi, "")
+          .replace(/\[READY_FOR_VALIDATION\]/gi, "");
+        assistantContent.innerHTML = marked.parse(displayText);
         addCopyButtons(assistantContent);
         chat.scrollTop = chat.scrollHeight;
       }
@@ -603,6 +630,9 @@ document.addEventListener("DOMContentLoaded", () => {
         statsEl.textContent = statsText;
         statsEl.style.display = statsText ? "block" : "none";
       }
+      if (payload.task_state) {
+        renderTaskState(payload.task_state);
+      }
       if (payload.done) {
         statusEl.textContent = "";
         source.close();
@@ -610,6 +640,11 @@ document.addEventListener("DOMContentLoaded", () => {
         submitBtn.style.display = "inline-block";
         stopBtn.style.display = "none";
         loadSessions(); // Reload sidebar to update titles
+
+        // Reliably refresh task state after stream ends (after_stream hooks have run)
+        if (inputMode === "agent") {
+          loadTaskState();
+        }
       }
       if (payload.error) {
         statusEl.textContent = "Error: " + payload.error;
@@ -684,5 +719,182 @@ document.addEventListener("DOMContentLoaded", () => {
   // Init
   loadSessions();
   bindBranchButtons();
-});
 
+  // ── Chat/Agent Mode Toggle ─────────────────────────────
+  let inputMode = "chat"; // "chat" | "agent"
+  const modeChatBtn = document.getElementById("modeChatBtn");
+  const modeAgentBtn = document.getElementById("modeAgentBtn");
+  const taskPanel = document.getElementById("taskPanel");
+  const taskName = document.getElementById("taskName");
+  const taskPhaseBadge = document.getElementById("taskPhaseBadge");
+  const taskProgressFill = document.getElementById("taskProgressFill");
+  const taskStepsList = document.getElementById("taskStepsList");
+  const taskActions = document.getElementById("taskActions");
+  const taskResetBtn = document.getElementById("taskResetBtn");
+  const taskCollapseBtn = document.getElementById("taskCollapseBtn");
+  const taskBody = document.getElementById("taskBody");
+
+  function setMode(mode) {
+    inputMode = mode;
+    modeChatBtn.classList.toggle("active", mode === "chat");
+    modeAgentBtn.classList.toggle("active", mode === "agent");
+    messageInput.placeholder = mode === "agent"
+      ? "Describe a task for the agent..."
+      : "Message DeepSeek...";
+    if (mode === "agent") {
+      loadTaskState();
+    } else {
+      taskPanel.classList.remove("visible");
+    }
+  }
+
+  modeChatBtn.addEventListener("click", () => setMode("chat"));
+  modeAgentBtn.addEventListener("click", () => setMode("agent"));
+
+  // ── Task State Panel ───────────────────────────────────
+
+  async function loadTaskState() {
+    try {
+      const sessionId = currentSessionId || "default";
+      const res = await fetch(`/task?session_id=${encodeURIComponent(sessionId)}`);
+      if (!res.ok) return;
+      const state = await res.json();
+      renderTaskState(state);
+    } catch (e) { console.error("Failed to load task state", e); }
+  }
+
+  function renderTaskState(state) {
+    if (inputMode !== "agent") return;
+
+    const phase = state.phase || "idle";
+
+    if (phase === "idle") {
+      taskPanel.classList.remove("visible");
+      return;
+    }
+
+    taskPanel.classList.add("visible");
+
+    // Title + badge
+    taskName.textContent = state.task || "—";
+    taskPhaseBadge.textContent = phase;
+    taskPhaseBadge.className = "task-phase-badge " + phase;
+
+    // Progress
+    let pct;
+    if (phase === "done" || phase === "validation") {
+      pct = 100;
+    } else {
+      pct = state.total_steps > 0
+        ? Math.round((state.current_step / state.total_steps) * 100)
+        : 0;
+    }
+    taskProgressFill.style.width = pct + "%";
+
+    // Steps
+    taskStepsList.innerHTML = "";
+    if (state.plan && state.plan.length > 0) {
+      state.plan.forEach((step, i) => {
+        const li = document.createElement("li");
+        const marker = document.createElement("span");
+        marker.className = "step-marker";
+
+        if (i < state.current_step) {
+          li.className = "done";
+          marker.textContent = "✅";
+        } else if (i === state.current_step && phase === "execution") {
+          li.className = "active";
+          marker.textContent = "👉";
+        } else {
+          li.className = "pending";
+          marker.textContent = "⬚";
+        }
+
+        const text = document.createElement("span");
+        text.textContent = `${i + 1}. ${step}`;
+
+        li.appendChild(marker);
+        li.appendChild(text);
+        taskStepsList.appendChild(li);
+      });
+    }
+
+    // Action buttons
+    taskActions.innerHTML = "";
+    const addBtn = (label, cls, handler) => {
+      const btn = document.createElement("button");
+      btn.className = `task-btn ${cls}`;
+      btn.textContent = label;
+      btn.addEventListener("click", handler);
+      taskActions.appendChild(btn);
+    };
+
+    if (phase === "planning" && state.plan && state.plan.length > 0) {
+      addBtn("✓ Approve Plan", "primary", async () => {
+        await taskAction("/task/approve");
+        sendAutoMessage("Plan approved. Proceed with execution.");
+      });
+    }
+    if (phase === "validation") {
+      addBtn("✓ Complete", "primary", async () => {
+        await taskAction("/task/complete");
+        sendAutoMessage("Task validated and completed. Provide a summary.");
+      });
+    }
+    if (["planning", "execution", "validation"].includes(phase)) {
+      addBtn("⏸ Pause", "", () => taskAction("/task/pause"));
+    }
+    if (phase === "paused") {
+      addBtn("▶ Resume", "primary", () => taskAction("/task/resume"));
+    }
+  }
+
+  async function taskAction(endpoint) {
+    try {
+      const sessionId = currentSessionId || "default";
+      const res = await fetch(`${endpoint}?session_id=${encodeURIComponent(sessionId)}`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) renderTaskState(data.state);
+      }
+    } catch (e) { console.error("Task action failed", e); }
+  }
+
+  // Auto-send a message to the agent (used by Approve / Complete buttons)
+  function sendAutoMessage(text) {
+    messageInput.value = text;
+    submitBtn.click();
+  }
+
+  // Collapse/expand task panel body
+  taskCollapseBtn.addEventListener("click", () => {
+    taskBody.classList.toggle("collapsed");
+    taskCollapseBtn.classList.toggle("rotated");
+    taskCollapseBtn.title = taskBody.classList.contains("collapsed") ? "Expand" : "Collapse";
+  });
+
+  // Reset task
+  taskResetBtn.addEventListener("click", async () => {
+    const sessionId = currentSessionId || "default";
+    await fetch(`/task/reset?session_id=${encodeURIComponent(sessionId)}`, { method: "POST" });
+    taskPanel.classList.remove("visible");
+  });
+
+  // Reload task state when switching sessions (in agent mode)
+  const origLoadHistory = loadHistory;
+  loadHistory = async function (sessionId) {
+    await origLoadHistory(sessionId);
+    if (inputMode === "agent") {
+      await loadTaskState();
+    }
+  };
+
+  // Reload task state after /clear
+  clearBtn.addEventListener("click", () => {
+    if (inputMode === "agent") {
+      setTimeout(loadTaskState, 300);
+    }
+  });
+});
