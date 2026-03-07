@@ -15,6 +15,7 @@ class ChatSession:
         self._messages: List[Dict[str, str]] = []
         self._max_messages = max_messages
         self.summary: str = ""
+        self.facts: str = ""
         self.updated_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
     def add_user(self, content: str) -> None:
