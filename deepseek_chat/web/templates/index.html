@@ -31,6 +31,7 @@
         <div class="toolbar-actions">
           <button id="profileBtn" type="button" class="icon-btn" title="Profile">👤</button>
           <button id="memoryBtn" type="button" class="icon-btn" title="Memory">🧠</button>
+          <button id="invariantsBtn" type="button" class="icon-btn" title="Invariants">🛡️</button>
           <button id="settingsBtn" type="button" class="icon-btn" title="Settings">⚙️</button>
           <button id="clearBtn" type="button">Clear</button>
         </div>
@@ -224,7 +225,29 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=15"></script>
+  <!-- Invariants Modal -->
+  <div id="invariantsModal" class="modal">
+    <div class="modal-content" style="width: 480px; max-width: 90vw;">
+      <span class="close-btn" id="closeInvariants">&times;</span>
+      <h2>Invariants 🛡️</h2>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+        Hard constraints the assistant must never violate — architecture decisions, stack restrictions, business rules.
+        The assistant will refuse requests that conflict with these invariants.
+      </p>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <input type="text" id="invariantInput" class="form-input" placeholder="e.g. Only Kotlin, no Java"
+          style="flex: 1;">
+        <button id="addInvariantBtn" class="primary-btn">Add</button>
+      </div>
+      <ul id="invariantsList" class="memory-list"
+        style="list-style: none; padding: 0; margin: 0; max-height: 260px; overflow-y: auto;">
+        <!-- Loaded via JS -->
+      </ul>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=16"></script>
 </body>
 
 </html>

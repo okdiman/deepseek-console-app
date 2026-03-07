@@ -18,6 +18,7 @@ from .state import (
 from .cost_tracker import reset_session_cost_usd
 from ..core.profile import UserProfile
 from ..core.memory import MemoryStore
+from ..core.invariants import InvariantStore
 from .streaming import sse_response, stream_events
 from .views import render_index
 
@@ -137,6 +138,28 @@ async def get_profile() -> JSONResponse:
 async def update_profile(profile_data: dict) -> JSONResponse:
     profile = UserProfile(**profile_data)
     profile.save()
+    return JSONResponse({"ok": True})
+
+
+# ── Invariants endpoints ─────────────────────────────────
+
+@router.get("/invariants")
+async def get_invariants() -> JSONResponse:
+    store = InvariantStore.load()
+    return JSONResponse(store.to_dict())
+
+@router.post("/invariants")
+async def add_invariant(payload: MemoryContent) -> JSONResponse:
+    store = InvariantStore.load()
+    store.add(payload.content)
+    store.save()
+    return JSONResponse({"ok": True})
+
+@router.delete("/invariants/{index}")
+async def remove_invariant(index: int) -> JSONResponse:
+    store = InvariantStore.load()
+    store.remove(index)
+    store.save()
     return JSONResponse({"ok": True})
 
 

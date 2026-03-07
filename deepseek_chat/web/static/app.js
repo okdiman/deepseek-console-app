@@ -73,6 +73,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveProfileBtn = document.getElementById("saveProfileBtn");
   const profileStatusMsg = document.getElementById("profileStatusMsg");
 
+  // Invariants Modal elements
+  const invariantsBtn = document.getElementById("invariantsBtn");
+  const invariantsModal = document.getElementById("invariantsModal");
+  const closeInvariants = document.getElementById("closeInvariants");
+  const invariantInput = document.getElementById("invariantInput");
+  const addInvariantBtn = document.getElementById("addInvariantBtn");
+  const invariantsList = document.getElementById("invariantsList");
+
   const saveSettingsBtn = document.getElementById("saveSettingsBtn");
   const resetSettingsBtn = document.getElementById("resetSettingsBtn");
   const stopBtn = document.getElementById("stopBtn");
@@ -291,6 +299,74 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // ── Invariants Modal Logic ────────────────────────────────
+  async function loadInvariants() {
+    try {
+      const res = await fetch("/invariants");
+      if (res.ok) {
+        const data = await res.json();
+        renderInvariantsList(data.invariants || []);
+      }
+    } catch (e) { console.error("Failed to load invariants", e); }
+  }
+
+  function renderInvariantsList(items) {
+    invariantsList.innerHTML = "";
+    items.forEach((rule, index) => {
+      const li = document.createElement("li");
+
+      const span = document.createElement("span");
+      span.textContent = rule;
+      li.appendChild(span);
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "memory-del-btn";
+      delBtn.innerHTML = "🗑";
+      delBtn.title = "Delete invariant";
+      delBtn.addEventListener("click", async () => {
+        const res = await fetch(`/invariants/${index}`, { method: "DELETE" });
+        if (res.ok) loadInvariants();
+      });
+      li.appendChild(delBtn);
+
+      invariantsList.appendChild(li);
+    });
+  }
+
+  async function addInvariant() {
+    const text = invariantInput.value.trim();
+    if (!text) return;
+    try {
+      const res = await fetch("/invariants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: text })
+      });
+      if (res.ok) {
+        invariantInput.value = "";
+        loadInvariants();
+      }
+    } catch (e) { console.error("Failed to add invariant", e); }
+  }
+
+  if (invariantsBtn) {
+    invariantsBtn.addEventListener("click", () => {
+      loadInvariants();
+      invariantsModal.style.display = "block";
+    });
+  }
+
+  if (closeInvariants) {
+    closeInvariants.addEventListener("click", () => {
+      invariantsModal.style.display = "none";
+    });
+  }
+
+  addInvariantBtn.addEventListener("click", () => addInvariant());
+  invariantInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") addInvariant();
+  });
 
   saveSettingsBtn.addEventListener("click", () => {
     customSettings.temperature = parseFloat(temperatureSlider.value);

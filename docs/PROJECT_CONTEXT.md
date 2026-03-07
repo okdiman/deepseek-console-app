@@ -38,13 +38,14 @@ Streaming chat application with DeepSeek/Groq API, featuring a Web UI and consol
 - `deepseek_chat/core/config.py` — config + optional params (code-only)
 - `deepseek_chat/core/client.py` — streaming HTTP client
 - `deepseek_chat/agents/base_agent.py` — Base agent orchestrator running Hook pipelines
-- `deepseek_chat/agents/hooks/` — AgentHooks package (base, MemoryInjection, UserProfile, AutoTitle, TaskState)
+- `deepseek_chat/agents/hooks/` — AgentHooks package (base, MemoryInjection, UserProfile, AutoTitle, TaskState, InvariantGuard)
 - `deepseek_chat/agents/android_agent.py` — Android-focused agent + system prompt
 - `deepseek_chat/agents/general_agent.py` — General-purpose agent
 - `deepseek_chat/core/session.py` — message history, branching, context compression
 - `deepseek_chat/core/task_state.py` — Task State Machine (finite automaton: idle→planning→execution→validation→done)
 - `deepseek_chat/core/memory.py` — global explicit memory layers (working, long_term), persisted to `~/.deepseek_chat/memory.json`
 - `deepseek_chat/core/profile.py` — global UserProfile model (`~/.deepseek_chat/profile.json`)
+- `deepseek_chat/core/invariants.py` — global InvariantStore model (`~/.deepseek_chat/invariants.json`)
 - `deepseek_chat/core/stream_printer.py` — stall indicator
 - `deepseek_chat/core/comparing/model_compare.py` — сравнение ответов разных моделей
 
@@ -96,6 +97,7 @@ Edit defaults in `deepseek_chat/core/config.py`:
   - Sidebar: Displays autonomous chat sessions (branches) with auto-generated titles. Users can switch between them and delete them.
   - **Memory/Brain (🧠)**: Global Explicit Memory. Users can save working and long-term memory constraints shared across all sessions. Working memory auto-clears on `/clear`, long-term persists forever.
   - **Profile (👤)**: Global User Profile. Modifies agent responses with strict styling, formatting, and constraints across all sessions.
+  - **Invariants (🛡️)**: Global hard constraints (architecture, stack, business rules) that the assistant must never violate. When a request conflicts with an invariant, the assistant refuses and explains which invariant would be broken.
   - **Chat / Agent Modes**: A unified input field allows tossing between standard `Chat` mode and autonomous `Agent` mode where tasks are managed via a state machine.
 - **Automatic Context Optimization**: Combines sliding window (last N messages intact) + compression (summarize older messages) + auto-facts extraction (key facts auto-populate Working Memory during compression). No user configuration needed.
 - **Task State Machine (Agent Mode)**: Structured task execution as FSM (`idle→planning→execution→validation→done`). Supports pause/resume on any phase. User approves plan and final completion; agent auto-advances execution steps. Per-session state is persisted. A collapsible UI panel shows progress, steps, and action buttons. The API handles state transitions (`POST /task/approve|pause|resume|complete`), and clients fetch the latest state seamlessly without refresh (`GET /task`).
@@ -149,6 +151,13 @@ Structure:
 ## Global Profile File
 Default path: `~/.deepseek_chat/profile.json`
 Structure corresponds to `UserProfile` parameters like `name`, `role`, `style_preferences`, `formatting_rules`, and `constraints`.
+
+## Global Invariants File
+Default path: `~/.deepseek_chat/invariants.json`
+Structure:
+{
+  "invariants": ["Only Kotlin, no Java", "Clean Architecture + MVVM"]
+}
 
 ## Quick Verification
 1. Run the app, send a couple of messages.
