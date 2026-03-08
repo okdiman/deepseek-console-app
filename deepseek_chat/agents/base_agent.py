@@ -51,9 +51,17 @@ class BaseAgent:
 
         for hook in self._hooks:
             system_prompt = await hook.before_stream(self, user_input, system_prompt, history_messages)
-            
+
         # Re-build final request combining hooked prompt and user input
         history_messages[0] = {"role": "system", "content": system_prompt}
+
+        # 1.5. Check for intercepts
+        for hook in self._hooks:
+            intercept = await hook.intercept_stream(self, user_input, history_messages)
+            if intercept is not None:
+                yield intercept
+                self._session.add_assistant(intercept)
+                return
 
         response_parts: List[str] = []
         try:

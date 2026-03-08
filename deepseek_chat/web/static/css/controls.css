@@ -43,6 +43,11 @@
     font-family: inherit;
 }
 
+.input-capsule textarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .capsule-actions {
     display: flex;
     align-items: center;

@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 
 class TaskPhase(str, Enum):
@@ -22,6 +23,39 @@ class TaskPhase(str, Enum):
     PAUSED = "paused"
 
 
+# ── Declarative transition map ───────────────────────────────
+# Each key lists the phases reachable from it via normal transitions.
+# PAUSED is special: its allowed targets are resolved dynamically
+# from ``previous_phase`` (i.e. resume restores the phase before pause).
+
+ALLOWED_TRANSITIONS: Dict[TaskPhase, Set[TaskPhase]] = {
+    TaskPhase.IDLE:       {TaskPhase.PLANNING},
+    TaskPhase.PLANNING:   {TaskPhase.EXECUTION, TaskPhase.PAUSED},
+    TaskPhase.EXECUTION:  {TaskPhase.EXECUTION, TaskPhase.VALIDATION, TaskPhase.PAUSED},
+    TaskPhase.VALIDATION: {TaskPhase.DONE, TaskPhase.EXECUTION, TaskPhase.PAUSED},
+    TaskPhase.DONE:       {TaskPhase.IDLE},           # only via reset
+    TaskPhase.PAUSED:     set(),                       # dynamic — uses previous_phase
+}
+
+
+@dataclass
+class TransitionRecord:
+    from_phase: str
+    to_phase: str
+    timestamp: str
+
+    def to_dict(self) -> Dict:
+        return {"from": self.from_phase, "to": self.to_phase, "timestamp": self.timestamp}
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "TransitionRecord":
+        return cls(
+            from_phase=data.get("from", ""),
+            to_phase=data.get("to", ""),
+            timestamp=data.get("timestamp", ""),
+        )
+
+
 @dataclass
 class TaskState:
     task: str = ""
@@ -31,6 +65,7 @@ class TaskState:
     total_steps: int = 0
     plan: List[str] = field(default_factory=list)
     done: List[str] = field(default_factory=list)
+    transition_log: List[TransitionRecord] = field(default_factory=list)
 
     def to_dict(self) -> Dict:
         return {
@@ -41,6 +76,7 @@ class TaskState:
             "total_steps": self.total_steps,
             "plan": list(self.plan),
             "done": list(self.done),
+            "transition_log": [r.to_dict() for r in self.transition_log],
         }
 
     @classmethod
@@ -53,6 +89,9 @@ class TaskState:
             total_steps=data.get("total_steps", 0),
             plan=data.get("plan", []),
             done=data.get("done", []),
+            transition_log=[
+                TransitionRecord.from_dict(r) for r in data.get("transition_log", [])
+            ],
         )
 
 
@@ -86,18 +125,58 @@ class TaskStateMachine:
     def state(self) -> TaskState:
         return self._state
 
+    # ── Transition helpers ───────────────────────────────────
+
+    def _validate_transition(self, target: TaskPhase) -> None:
+        """Raise InvalidTransitionError if transition from current phase to *target* is forbidden."""
+        current = self._state.phase
+
+        # PAUSED has dynamic targets
+        if current == TaskPhase.PAUSED:
+            if self._state.previous_phase is not None and target == self._state.previous_phase:
+                return
+            raise InvalidTransitionError(
+                f"Cannot transition from '{current.value}' to '{target.value}'. "
+                f"Allowed: resume to '{self._state.previous_phase.value if self._state.previous_phase else 'unknown'}'"
+            )
+
+        allowed = ALLOWED_TRANSITIONS.get(current, set())
+        if target not in allowed:
+            allowed_names = sorted(p.value for p in allowed) if allowed else ["none"]
+            raise InvalidTransitionError(
+                f"Cannot transition from '{current.value}' to '{target.value}'. "
+                f"Allowed transitions: {', '.join(allowed_names)}"
+            )
+
+    def _record_transition(self, from_phase: TaskPhase, to_phase: TaskPhase) -> None:
+        """Append a record to the transition log."""
+        self._state.transition_log.append(TransitionRecord(
+            from_phase=from_phase.value,
+            to_phase=to_phase.value,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        ))
+
+    def get_allowed_transitions(self) -> List[str]:
+        """Return a list of phase names reachable from the current phase."""
+        current = self._state.phase
+        if current == TaskPhase.PAUSED:
+            if self._state.previous_phase is not None:
+                return [self._state.previous_phase.value]
+            return []
+        allowed = ALLOWED_TRANSITIONS.get(current, set())
+        return sorted(p.value for p in allowed)
+
     # ── Transitions ──────────────────────────────────────────────
 
     def start_task(self, goal: str) -> None:
         """Start a new task. idle → planning"""
-        if self._state.phase != TaskPhase.IDLE:
-            raise InvalidTransitionError(
-                f"Cannot start task: current phase is '{self._state.phase.value}', expected 'idle'"
-            )
+        self._validate_transition(TaskPhase.PLANNING)
+        old = self._state.phase
         self._state = TaskState(
             task=goal,
             phase=TaskPhase.PLANNING,
         )
+        self._record_transition(old, TaskPhase.PLANNING)
 
     def set_plan(self, steps: List[str]) -> None:
         """Agent proposes a plan during the planning phase."""
@@ -113,11 +192,14 @@ class TaskStateMachine:
         """User approves the plan. planning → execution"""
         if self._state.phase != TaskPhase.PLANNING:
             raise InvalidTransitionError(
-                f"Cannot approve plan: current phase is '{self._state.phase.value}', expected 'planning'"
+                f"Cannot approve plan: current phase is '{self._state.phase.value}', expected 'planning'. "
+                f"Allowed transitions: {', '.join(self.get_allowed_transitions())}"
             )
         if not self._state.plan:
             raise InvalidTransitionError("Cannot approve plan: plan is empty")
+        old = self._state.phase
         self._state.phase = TaskPhase.EXECUTION
+        self._record_transition(old, TaskPhase.EXECUTION)
 
     def step_done(self, step_description: str = "") -> None:
         """Agent marks current step as done and advances. execution → execution"""
@@ -135,39 +217,60 @@ class TaskStateMachine:
         )
         self._state.done.append(desc)
         self._state.current_step += 1
+        
+        # Automatically transition if this was the last step
+        if self._state.current_step >= self._state.total_steps and self._state.total_steps > 0:
+            if self._state.phase == TaskPhase.EXECUTION:
+                self.advance_to_validation()
 
     def advance_to_validation(self) -> None:
         """Agent moves task to validation when all steps are done. execution → validation"""
-        if self._state.phase != TaskPhase.EXECUTION:
-            raise InvalidTransitionError(
-                f"Cannot advance to validation: current phase is '{self._state.phase.value}', expected 'execution'"
-            )
+        if self._state.phase == TaskPhase.VALIDATION:
+            return # Already in validation
+        self._validate_transition(TaskPhase.VALIDATION)
+        old = self._state.phase
         self._state.phase = TaskPhase.VALIDATION
+        self._record_transition(old, TaskPhase.VALIDATION)
 
     def complete(self) -> None:
         """User confirms task is done. validation → done"""
-        if self._state.phase != TaskPhase.VALIDATION:
-            raise InvalidTransitionError(
-                f"Cannot complete: current phase is '{self._state.phase.value}', expected 'validation'"
-            )
+        self._validate_transition(TaskPhase.DONE)
+        old = self._state.phase
         self._state.phase = TaskPhase.DONE
+        self._record_transition(old, TaskPhase.DONE)
 
     def reject_validation(self) -> None:
-        """Send task back to execution. validation → execution"""
-        if self._state.phase != TaskPhase.VALIDATION:
-            raise InvalidTransitionError(
-                f"Cannot reject: current phase is '{self._state.phase.value}', expected 'validation'"
-            )
+        """Send task back to execution without changing the step index. validation → execution"""
+        self._validate_transition(TaskPhase.EXECUTION)
+        old = self._state.phase
         self._state.phase = TaskPhase.EXECUTION
+        self._record_transition(old, TaskPhase.EXECUTION)
+
+    def revert_to_step(self, step_idx: int) -> None:
+        """Revert task back to execution at a specific step. validation/execution → execution"""
+        self._validate_transition(TaskPhase.EXECUTION)
+        if step_idx < 0 or step_idx >= self._state.total_steps:
+            raise InvalidTransitionError(f"Invalid step index {step_idx}")
+            
+        old = self._state.phase
+        self._state.phase = TaskPhase.EXECUTION
+        self._state.current_step = step_idx
+        # Truncate the 'done' array so the UI resets checks for subsequent steps
+        self._state.done = self._state.done[:step_idx]
+        
+        self._record_transition(old, TaskPhase.EXECUTION)
 
     def pause(self) -> None:
         """Pause the task, remembering current phase. active → paused"""
+        self._validate_transition(TaskPhase.PAUSED)
         if self._state.phase not in self._PAUSABLE:
             raise InvalidTransitionError(
                 f"Cannot pause: current phase '{self._state.phase.value}' is not pausable"
             )
+        old = self._state.phase
         self._state.previous_phase = self._state.phase
         self._state.phase = TaskPhase.PAUSED
+        self._record_transition(old, TaskPhase.PAUSED)
 
     def resume(self) -> None:
         """Resume from pause, restoring previous phase. paused → previous"""
@@ -177,12 +280,19 @@ class TaskStateMachine:
             )
         if self._state.previous_phase is None:
             raise InvalidTransitionError("Cannot resume: no previous phase stored")
-        self._state.phase = self._state.previous_phase
+        self._validate_transition(self._state.previous_phase)
+        old = self._state.phase
+        target = self._state.previous_phase
+        self._state.phase = target
         self._state.previous_phase = None
+        self._record_transition(old, target)
 
     def reset(self) -> None:
         """Reset to idle. Can be called from any phase."""
+        old = self._state.phase
         self._state = TaskState()
+        if old != TaskPhase.IDLE:
+            self._record_transition(old, TaskPhase.IDLE)
 
     # ── Prompt injection ─────────────────────────────────────────
 
@@ -196,9 +306,21 @@ class TaskStateMachine:
         lines.append(f"Task: {s.task}")
         lines.append(f"Phase: {s.phase.value}")
 
+        # Allowed transitions from current phase
+        allowed = self.get_allowed_transitions()
+        if allowed:
+            lines.append(f"Allowed transitions from '{s.phase.value}': {', '.join(allowed)}")
+        lines.append(
+            "STRICT RULE: You MUST NOT skip phases. Transitions outside the allowed list above are FORBIDDEN."
+        )
+
         if s.phase == TaskPhase.PAUSED:
             lines.append(f"Paused from: {s.previous_phase.value if s.previous_phase else 'unknown'}")
-            lines.append("The task is PAUSED. Wait for user to resume. Do NOT continue task work.")
+            lines.append(
+                "The task is PAUSED. If the user explicitly asks you to resume or continue the task, "
+                "you MUST output the marker [RESUME_TASK]. This will unpause the task.\n"
+                "Otherwise, converse normally but Do NOT continue task work."
+            )
             return "\n".join(lines)
 
         if s.plan:
@@ -211,32 +333,60 @@ class TaskStateMachine:
             lines.append(f"Completed: {', '.join(s.done)}")
 
         if s.phase == TaskPhase.PLANNING:
-            lines.append(
-                "You are in PLANNING phase. Analyze the task, break it into concrete steps, "
-                "and respond with a plan. Use the marker [PLAN_READY] at the END of your "
-                "response when the plan is complete. Format steps as a numbered list."
-            )
+            if not s.plan:
+                lines.append(
+                    "You are in PLANNING phase. Analyze the task, break it into concrete steps, "
+                    "and respond with a plan. Use the marker [PLAN_READY] at the END of your "
+                    "response when the plan is complete. Format steps as a numbered list.\n"
+                    "After presenting the plan you MUST STOP. Do NOT start execution."
+                )
+            else:
+                lines.append(
+                    "⚠️ PHASE IS STILL: PLANNING. The plan has been proposed but NOT YET APPROVED by the user.\n"
+                    "🚫 ABSOLUTE PROHIBITION: Do NOT start execution, do NOT write code, "
+                    "do NOT implement anything, do NOT perform any steps from the plan.\n"
+                    "The ONLY transition allowed is: user clicks '✓ Approve Plan' button.\n"
+                    "No matter what the user writes in chat — even if they say 'go ahead', "
+                    "'start', 'execute', 'implement', 'proceed' — you MUST refuse and reply:\n"
+                    "'Я не могу приступить к выполнению, пока план не будет утверждён. "
+                    "Пожалуйста, нажмите кнопку ✓ Approve Plan в панели задачи.'\n"
+                    "THIS IS A HARD SYSTEM CONSTRAINT, NOT A SUGGESTION."
+                )
         elif s.phase == TaskPhase.EXECUTION:
             if s.current_step < s.total_steps:
                 lines.append(
                     f"You are in EXECUTION phase. Work on step {s.current_step + 1}: "
                     f"\"{s.plan[s.current_step]}\".\n"
                     "IMPORTANT RULES:\n"
-                    "- If you need clarification or user input to complete this step, "
-                    "ask the question and do NOT include [STEP_DONE]. Wait for the answer.\n"
-                    "- Include [STEP_DONE] ONLY after you have delivered the actual "
-                    "result/output for this step (code, analysis, answer, etc.).\n"
-                    "- After [STEP_DONE], continue with the next step automatically.\n"
-                    "- When ALL steps are finished, include [READY_FOR_VALIDATION]."
+                    "- You CANNOT skip to validation or done without completing all steps.\n"
+                    "- 🚨 MANDATORY STOP RULE: If a step requires user data, preferences, or choices (e.g. 'budget', 'location', 'preferences'), "
+                    "you MUST ask the user for them. When you ask a question, you MUST STOP GENERATING TEXT IMMEDIATELY. "
+                    "Do not attempt to guess, provide hypothetical examples, or move to the next step. Wait for the user to reply.\n"
+                    "- NEVER output [STEP_DONE] if your response contains a question. A step with a pending question is BLOCKING and incomplete.\n"
+                    "- Include [STEP_DONE] ONLY when you have solid data, the step is 100% resolved, and you are NOT asking any questions.\n"
+                    "- 🚀 PROACTIVE EXECUTION: If (and ONLY if) you have all the necessary information and are NOT asking any questions, "
+                    "write the output, include [STEP_DONE], and IMMEDIATELY start working on the next step "
+                    "in the same response."
                 )
             else:
                 lines.append(
-                    "All planned steps are complete. Include [READY_FOR_VALIDATION] marker."
+                    "You are in EXECUTION phase. All plan steps are complete.\n"
+                    "Use the marker [READY_FOR_VALIDATION] to proceed to validation."
                 )
-        elif s.phase == TaskPhase.VALIDATION:
+
+        if s.phase in {TaskPhase.EXECUTION, TaskPhase.VALIDATION}:
+            lines.append(
+                "If the user is not satisfied or if you realize a mistake was made, you can roll back to a prior step.\n"
+                "Use the marker [REVERT_TO_STEP: N] where N is the 1-based step number (e.g. [REVERT_TO_STEP: 2]).\n"
+                "This will transition the task back to execution at that step, and you can rewrite the code or plan from there."
+            )
+
+        if s.phase == TaskPhase.VALIDATION:
             lines.append(
                 "You are in VALIDATION phase. Review all completed work, verify results, "
-                "and summarize what was accomplished. The user will confirm completion."
+                "and summarize what was accomplished. The user will confirm completion.\n"
+                "You CANNOT mark the task as done — only the user can complete it.\n"
+                "If the user is not satisfied, they can ask to revise the plan or rewrite parts of the code."
             )
         elif s.phase == TaskPhase.DONE:
             lines.append("Task is DONE. Proceed with normal conversation.")

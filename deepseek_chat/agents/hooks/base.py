@@ -16,8 +16,17 @@ class AgentHook(ABC):
     during the LLM response stream lifecycle.
     """
 
+    async def intercept_stream(
+        self, agent: "BaseAgent", user_input: str, history: List[Dict[str, str]]
+    ) -> Optional[str]:
+        """
+        Called before the stream is executed. If this returns a string, the agent will
+        yield this string directly and SKIP calling the LLM entirely.
+        """
+        return None
+
     @abstractmethod
-    async def before_stream(self, agent: BaseAgent, user_input: str, system_prompt: str, history: List[Dict[str, str]]) -> str:
+    async def before_stream(self, agent: "BaseAgent", user_input: str, system_prompt: str, history: List[Dict[str, str]]) -> str:
         """
         Called right before the stream is executed. 
         Hooks can return a modified `system_prompt` string here.

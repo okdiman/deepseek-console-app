@@ -211,6 +211,13 @@
     background: #3a2020;
 }
 
+.task-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(1);
+    pointer-events: none;
+}
+
 /* ── Mode Toggle ──────────────────────────────────────── */
 .mode-toggle {
     display: flex;
@@ -249,4 +256,36 @@
     padding-top: 12px;
     border-top: 1px solid var(--border-subtle);
     animation: taskSlideIn 0.2s ease-out;
+}
+
+/* ── Transition Log ──────────────────────────────────── */
+.task-transition-log {
+    margin-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 8px;
+}
+
+.task-log-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
+}
+
+.task-log-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 11px;
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+.task-log-list li {
+    padding: 2px 0;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    font-family: var(--font-mono, monospace);
 }

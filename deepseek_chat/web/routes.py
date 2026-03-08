@@ -165,58 +165,64 @@ async def remove_invariant(index: int) -> JSONResponse:
 
 # ── Task State Machine endpoints ─────────────────────────────
 
+def _task_response(tm) -> dict:
+    """Build a unified task response including allowed transitions."""
+    data = tm.state.to_dict()
+    data["allowed_transitions"] = tm.get_allowed_transitions()
+    return data
+
 @router.get("/task")
 async def get_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
-    return JSONResponse(tm.state.to_dict())
+    return JSONResponse(_task_response(tm))
 
 @router.post("/task/start")
 async def start_task(payload: TaskGoal, session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
     try:
         tm.start_task(payload.goal)
-        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+        return JSONResponse({"ok": True, "state": _task_response(tm)})
     except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
 
 @router.post("/task/approve")
 async def approve_task_plan(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
     try:
         tm.approve_plan()
-        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+        return JSONResponse({"ok": True, "state": _task_response(tm)})
     except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
 
 @router.post("/task/pause")
 async def pause_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
     try:
         tm.pause()
-        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+        return JSONResponse({"ok": True, "state": _task_response(tm)})
     except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
 
 @router.post("/task/resume")
 async def resume_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
     try:
         tm.resume()
-        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+        return JSONResponse({"ok": True, "state": _task_response(tm)})
     except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
 
 @router.post("/task/complete")
 async def complete_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
     try:
         tm.complete()
-        return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+        return JSONResponse({"ok": True, "state": _task_response(tm)})
     except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
 
 @router.post("/task/reset")
 async def reset_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
     tm.reset()
-    return JSONResponse({"ok": True, "state": tm.state.to_dict()})
+    return JSONResponse({"ok": True, "state": _task_response(tm)})

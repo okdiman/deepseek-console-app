@@ -685,6 +685,10 @@ document.addEventListener("DOMContentLoaded", () => {
     submitBtn.style.display = "none";
     stopBtn.style.display = "inline-block";
 
+    // Disable inputs and task actions during stream
+    messageInput.disabled = true;
+    document.querySelectorAll(".task-btn").forEach(btn => btn.disabled = true);
+
     const source = new EventSource(url);
     currentSource = source;
 
@@ -715,6 +719,11 @@ document.addEventListener("DOMContentLoaded", () => {
         currentSource = null;
         submitBtn.style.display = "inline-block";
         stopBtn.style.display = "none";
+
+        // Re-enable inputs
+        messageInput.disabled = false;
+        document.querySelectorAll(".task-btn").forEach(btn => btn.disabled = false);
+
         loadSessions(); // Reload sidebar to update titles
 
         // Reliably refresh task state after stream ends (after_stream hooks have run)
@@ -728,6 +737,10 @@ document.addEventListener("DOMContentLoaded", () => {
         currentSource = null;
         submitBtn.style.display = "inline-block";
         stopBtn.style.display = "none";
+
+        // Re-enable inputs
+        messageInput.disabled = false;
+        document.querySelectorAll(".task-btn").forEach(btn => btn.disabled = false);
       }
       chat.scrollTop = chat.scrollHeight;
     };
@@ -738,6 +751,10 @@ document.addEventListener("DOMContentLoaded", () => {
       currentSource = null;
       submitBtn.style.display = "inline-block";
       stopBtn.style.display = "none";
+
+      // Re-enable inputs
+      messageInput.disabled = false;
+      document.querySelectorAll(".task-btn").forEach(btn => btn.disabled = false);
     };
   });
 
@@ -749,7 +766,14 @@ document.addEventListener("DOMContentLoaded", () => {
         statusEl.textContent = "Generation stopped by user.";
         submitBtn.style.display = "inline-block";
         stopBtn.style.display = "none";
+
+        // Re-enable inputs
+        messageInput.disabled = false;
+        document.querySelectorAll(".task-btn").forEach(btn => btn.disabled = false);
+
         loadSessions(); // Optional: reload sessions
+        // Allow time for the backend to detect the disconnect and pause the task
+        setTimeout(loadTaskState, 300);
       }
     });
   }
@@ -895,34 +919,45 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Action buttons
+    // Action buttons — driven by allowed_transitions from the server
     taskActions.innerHTML = "";
+    const allowed = state.allowed_transitions || [];
     const addBtn = (label, cls, handler) => {
       const btn = document.createElement("button");
       btn.className = `task-btn ${cls}`;
       btn.textContent = label;
+
+      // Disable buttons if a stream is currently active
+      if (currentSource) {
+        btn.disabled = true;
+      }
+
       btn.addEventListener("click", handler);
       taskActions.appendChild(btn);
     };
 
-    if (phase === "planning" && state.plan && state.plan.length > 0) {
+    if (phase === "planning" && allowed.includes("execution") && state.plan && state.plan.length > 0) {
       addBtn("✓ Approve Plan", "primary", async () => {
         await taskAction("/task/approve");
         sendAutoMessage("Plan approved. Proceed with execution.");
       });
     }
-    if (phase === "validation") {
+    if (phase === "validation" && allowed.includes("done")) {
       addBtn("✓ Complete", "primary", async () => {
         await taskAction("/task/complete");
         sendAutoMessage("Task validated and completed. Provide a summary.");
       });
     }
-    if (["planning", "execution", "validation"].includes(phase)) {
+    if (allowed.includes("paused")) {
       addBtn("⏸ Pause", "", () => taskAction("/task/pause"));
     }
-    if (phase === "paused") {
-      addBtn("▶ Resume", "primary", () => taskAction("/task/resume"));
+    if (phase === "paused" && allowed.length > 0) {
+      addBtn("▶ Resume", "primary", async () => {
+        await taskAction("/task/resume");
+        sendAutoMessage("Задача снята с паузы. Продолжай с того места, где остановился.");
+      });
     }
+
   }
 
   async function taskAction(endpoint) {
@@ -941,7 +976,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Auto-send a message to the agent (used by Approve / Complete buttons)
   function sendAutoMessage(text) {
     messageInput.value = text;
-    submitBtn.click();
+    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
   }
 
   // Collapse/expand task panel body
