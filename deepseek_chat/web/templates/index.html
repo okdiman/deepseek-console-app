@@ -32,6 +32,7 @@
           <button id="profileBtn" type="button" class="icon-btn" title="Profile">👤</button>
           <button id="memoryBtn" type="button" class="icon-btn" title="Memory">🧠</button>
           <button id="invariantsBtn" type="button" class="icon-btn" title="Invariants">🛡️</button>
+          <button id="mcpBtn" type="button" class="icon-btn" title="MCP Servers">🔌</button>
           <button id="settingsBtn" type="button" class="icon-btn" title="Settings">⚙️</button>
           <button id="clearBtn" type="button">Clear</button>
         </div>
@@ -247,7 +248,44 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=16"></script>
+  <!-- MCP Modal -->
+  <div id="mcpModal" class="modal">
+    <div class="modal-content" style="width: 540px; max-width: 90vw;">
+      <span class="close-btn" id="closeMcp">&times;</span>
+      <h2>MCP Servers 🔌</h2>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+        Extend reasoning capabilities by connecting Model Context Protocol (MCP) servers. The agent will autonomously
+        discover and use the tools provided by these active servers.
+      </p>
+
+      <div style="background: var(--bg-hover); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <h3 style="font-size: 14px; margin-top: 0; margin-bottom: 8px;">Add New Server</h3>
+        <form id="addMcpForm" style="display: flex; flex-direction: column; gap: 8px;">
+          <input type="text" id="mcpId" placeholder="Unique ID (e.g. github_server)" class="form-input" required>
+          <input type="text" id="mcpName" placeholder="Display Name (e.g. GitHub Integration)" class="form-input"
+            required>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="mcpCommand" placeholder="Command (e.g. npx, python)" class="form-input"
+              style="flex: 1;" required>
+            <input type="text" id="mcpArgs"
+              placeholder="Args space-separated (e.g. -y @modelcontextprotocol/server-github)" class="form-input"
+              style="flex: 2;">
+          </div>
+          <button type="submit" class="primary-btn" style="align-self: flex-start; margin-top: 4px;">Connect</button>
+        </form>
+      </div>
+
+      <h3
+        style="font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 4px;">
+        Configured Servers</h3>
+      <div id="mcpServersList"
+        style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto;">
+        <!-- Loaded via JS -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=17"></script>
 </body>
 
 </html>

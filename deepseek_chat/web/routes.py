@@ -226,3 +226,69 @@ async def reset_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
     tm.reset()
     return JSONResponse({"ok": True, "state": _task_response(tm)})
+
+# ── MCP Server endpoints ─────────────────────────────────
+
+from ..core.mcp_registry import MCPServerConfig
+from .state import get_mcp_registry, get_mcp_manager
+
+@router.get("/mcp")
+async def list_mcp_servers() -> JSONResponse:
+    registry = get_mcp_registry()
+    manager = get_mcp_manager()
+    
+    servers = [s.model_dump() for s in registry.get_all()]
+    
+    # Also attach the active tools for enabled servers
+    tools = manager.get_aggregated_tools()
+    
+    return JSONResponse({
+        "servers": servers,
+        "tools": tools
+    })
+
+@router.post("/mcp")
+async def save_mcp_server(config: MCPServerConfig) -> JSONResponse:
+    registry = get_mcp_registry()
+    manager = get_mcp_manager()
+    
+    registry.add_server(config)
+    registry.save()
+    
+    if config.enabled:
+        await manager.reload_server(config.id)
+    else:
+        await manager.stop_server(config.id)
+        
+    return JSONResponse({"ok": True})
+
+@router.delete("/mcp/{server_id}")
+async def delete_mcp_server(server_id: str) -> JSONResponse:
+    registry = get_mcp_registry()
+    manager = get_mcp_manager()
+    
+    await manager.stop_server(server_id)
+    registry.remove_server(server_id)
+    registry.save()
+    
+    return JSONResponse({"ok": True})
+
+@router.post("/mcp/{server_id}/toggle")
+async def toggle_mcp_server(server_id: str, payload: dict) -> JSONResponse:
+    registry = get_mcp_registry()
+    manager = get_mcp_manager()
+    
+    server = registry.get_server(server_id)
+    if not server:
+        return JSONResponse({"ok": False, "error": "Server not found"}, status_code=404)
+        
+    enabled = payload.get("enabled", False)
+    server.enabled = enabled
+    registry.save()
+    
+    if enabled:
+        await manager.reload_server(server_id)
+    else:
+        await manager.stop_server(server_id)
+        
+    return JSONResponse({"ok": True, "enabled": enabled})

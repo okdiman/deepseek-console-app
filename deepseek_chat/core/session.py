@@ -23,6 +23,21 @@ class ChatSession:
         self.updated_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         self._trim()
 
+    def add_tool_calls(self, tool_calls: List[Dict]) -> None:
+        self._messages.append({"role": "assistant", "content": "", "tool_calls": tool_calls})
+        self.updated_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        self._trim()
+        
+    def add_tool_result(self, tool_call_id: str, name: str, content: str) -> None:
+        self._messages.append({
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "name": name,
+            "content": content
+        })
+        self.updated_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        self._trim()
+
     def add_assistant(self, content: str) -> None:
         self._messages.append({"role": "assistant", "content": content})
         self.updated_at = datetime.utcnow().isoformat(timespec="seconds") + "Z"

@@ -43,6 +43,8 @@ Streaming chat application with DeepSeek/Groq API, featuring a Web UI and consol
 - `deepseek_chat/agents/general_agent.py` — General-purpose agent
 - `deepseek_chat/core/session.py` — message history, branching, context compression
 - `deepseek_chat/core/task_state.py` — Task State Machine (finite automaton: idle→planning→execution→validation→done)
+- `deepseek_chat/core/mcp_manager.py` — Manages dynamic MCP processes and their tools
+- `deepseek_chat/core/mcp_registry.py` — Persists MCP server configs (`~/.deepseek_chat/mcp_servers.json`)
 - `deepseek_chat/core/memory.py` — global explicit memory layers (working, long_term), persisted to `~/.deepseek_chat/memory.json`
 - `deepseek_chat/core/profile.py` — global UserProfile model (`~/.deepseek_chat/profile.json`)
 - `deepseek_chat/core/invariants.py` — global InvariantStore model (`~/.deepseek_chat/invariants.json`)
@@ -98,6 +100,7 @@ Edit defaults in `deepseek_chat/core/config.py`:
   - **Memory/Brain (🧠)**: Global Explicit Memory. Users can save working and long-term memory constraints shared across all sessions. Working memory auto-clears on `/clear`, long-term persists forever.
   - **Profile (👤)**: Global User Profile. Modifies agent responses with strict styling, formatting, and constraints across all sessions.
   - **Invariants (🛡️)**: Global hard constraints (architecture, stack, business rules) that the assistant must never violate. When a request conflicts with an invariant, the assistant refuses and explains which invariant would be broken.
+  - **MCP Servers (🔌)**: Dynamically connect to Model Context Protocol servers to give the agent new tools (e.g. GitHub, Postgres, Local scripts). Managed by `MCPManager` and persisted by `MCPRegistry`. Tools are automatically prefix-routed to prevent namespace collisions.
   - **Chat / Agent Modes**: A unified input field allows tossing between standard `Chat` mode and autonomous `Agent` mode where tasks are managed via a state machine.
 - **Automatic Context Optimization**: Combines sliding window (last N messages intact) + compression (summarize older messages) + auto-facts extraction (key facts auto-populate Working Memory during compression). No user configuration needed.
 - **Task State Machine (Agent Mode)**: Structured task execution as FSM (`idle→planning→execution→validation→done`). Supports pause/resume on any phase. User approves plan and final completion; agent auto-advances execution steps. Per-session state is persisted. A collapsible UI panel shows progress, steps, transition history, and action buttons. The API handles state transitions (`POST /task/approve|pause|resume|complete`), and clients fetch the latest state seamlessly without refresh (`GET /task`). **Controlled transitions**: a declarative `ALLOWED_TRANSITIONS` map enforces valid phase changes; invalid attempts raise `InvalidTransitionError`. The system prompt injects allowed transitions and a strict no-skip rule. API responses include `allowed_transitions` so the frontend renders buttons dynamically. A `transition_log` records every phase change with timestamps.

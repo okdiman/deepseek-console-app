@@ -368,6 +368,172 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Enter") addInvariant();
   });
 
+  // ── MCP Modal Logic ───────────────────────────────────────
+  const mcpBtn = document.getElementById("mcpBtn");
+  const mcpModal = document.getElementById("mcpModal");
+  const closeMcp = document.getElementById("closeMcp");
+  const mcpServersList = document.getElementById("mcpServersList");
+  const addMcpForm = document.getElementById("addMcpForm");
+
+  async function loadMcpServers() {
+    try {
+      const res = await fetch("/mcp");
+      if (res.ok) {
+        const data = await res.json();
+        renderMcpList(data.servers, data.tools || []);
+      }
+    } catch (e) { console.error("Failed to load MCP servers", e); }
+  }
+
+  function renderMcpList(servers, allTools) {
+    mcpServersList.innerHTML = "";
+    if (servers.length === 0) {
+      mcpServersList.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px;">No MCP servers configured yet.</div>';
+      return;
+    }
+
+    servers.forEach(server => {
+      const container = document.createElement("div");
+      container.className = "memory-panel";
+      container.style.display = "block";
+      container.style.border = "1px solid var(--border-subtle)";
+
+      const header = document.createElement("div");
+      header.style.display = "flex";
+      header.style.justifyContent = "space-between";
+      header.style.alignItems = "center";
+      header.style.marginBottom = "8px";
+
+      const title = document.createElement("div");
+      title.innerHTML = `<strong>${server.name}</strong> <span style="font-size: 11px; color: var(--text-secondary);">(${server.id})</span>`;
+
+      const controls = document.createElement("div");
+      controls.style.display = "flex";
+      controls.style.gap = "8px";
+      controls.style.alignItems = "center";
+
+      // Toggle switch logic represented as a button for simplicity
+      const toggleBtn = document.createElement("button");
+      toggleBtn.className = server.enabled ? "primary-btn" : "secondary-btn";
+      toggleBtn.textContent = server.enabled ? "ON" : "OFF";
+      toggleBtn.style.padding = "2px 8px";
+      toggleBtn.style.fontSize = "12px";
+
+      toggleBtn.addEventListener("click", async () => {
+        const newState = !server.enabled;
+        const res = await fetch(`/mcp/${encodeURIComponent(server.id)}/toggle`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: newState })
+        });
+        if (res.ok) loadMcpServers();
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "memory-del-btn";
+      delBtn.innerHTML = "🗑";
+      delBtn.title = "Delete server";
+      delBtn.addEventListener("click", async () => {
+        if (confirm(`Delete MCP server ${server.name}?`)) {
+          const res = await fetch(`/mcp/${encodeURIComponent(server.id)}`, { method: "DELETE" });
+          if (res.ok) loadMcpServers();
+        }
+      });
+
+      controls.appendChild(toggleBtn);
+      controls.appendChild(delBtn);
+      header.appendChild(title);
+      header.appendChild(controls);
+      container.appendChild(header);
+
+      const cmdSpan = document.createElement("div");
+      cmdSpan.style.fontSize = "12px";
+      cmdSpan.style.fontFamily = "monospace";
+      cmdSpan.style.color = "var(--text-secondary)";
+      cmdSpan.style.marginBottom = "8px";
+      cmdSpan.textContent = `$ ${server.command} ${server.args.join(" ")}`;
+      container.appendChild(cmdSpan);
+
+      // Tools List
+      if (server.enabled) {
+        // Filter tools belonging to this server (they are prefixed by server_id__)
+        const serverTools = allTools.filter(t => t.function.name.startsWith(`${server.id}__`));
+        if (serverTools.length > 0) {
+          const toolsDiv = document.createElement("div");
+          toolsDiv.style.fontSize = "12px";
+          toolsDiv.innerHTML = `<strong style="color: var(--accent);">Available Tools (${serverTools.length}):</strong><br>`;
+          serverTools.forEach(t => {
+            const originalName = t.function.name.replace(`${server.id}__`, "");
+            toolsDiv.innerHTML += `<span style="display:inline-block; background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; margin: 2px 4px 2px 0;">🔧 ${originalName}</span>`;
+          });
+          container.appendChild(toolsDiv);
+        } else {
+          const toolsDiv = document.createElement("div");
+          toolsDiv.style.fontSize = "12px";
+          toolsDiv.style.color = "var(--warning)";
+          toolsDiv.textContent = "Connecting or no tools found...";
+          container.appendChild(toolsDiv);
+        }
+      }
+
+      mcpServersList.appendChild(container);
+    });
+  }
+
+  if (mcpBtn) {
+    mcpBtn.addEventListener("click", () => {
+      loadMcpServers();
+      mcpModal.style.display = "block";
+    });
+  }
+
+  if (closeMcp) {
+    closeMcp.addEventListener("click", () => {
+      mcpModal.style.display = "none";
+    });
+  }
+
+  if (addMcpForm) {
+    addMcpForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const idInput = document.getElementById("mcpId").value.trim();
+      const nameInput = document.getElementById("mcpName").value.trim();
+      const cmdInput = document.getElementById("mcpCommand").value.trim();
+      const argsInput = document.getElementById("mcpArgs").value.trim();
+
+      if (!idInput || !nameInput || !cmdInput) return;
+
+      // Basic argument splitting (doesn't handle quoted strings perfectly, but good enough for simple args)
+      const argsArray = argsInput ? argsInput.split(/\s+/) : [];
+
+      const payload = {
+        id: idInput.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+        name: nameInput,
+        command: cmdInput,
+        args: argsArray,
+        env: {},
+        enabled: true
+      };
+
+      try {
+        const res = await fetch("/mcp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          addMcpForm.reset();
+          loadMcpServers();
+        } else {
+          alert("Failed to add MCP server");
+        }
+      } catch (err) {
+        console.error("Error adding MCP server", err);
+      }
+    });
+  }
+
   saveSettingsBtn.addEventListener("click", () => {
     customSettings.temperature = parseFloat(temperatureSlider.value);
     customSettings.top_p = parseFloat(topPSlider.value);

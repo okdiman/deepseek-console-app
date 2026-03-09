@@ -27,9 +27,13 @@ deepseek-chat/
       session.py
       memory.py
       profile.py
+      mcp_manager.py
+      mcp_registry.py
       stream_printer.py
       token_counter.py
       comparing/
+    mcp_servers/
+      demo_server.py
     console/
       app.py
       main.py
@@ -119,6 +123,7 @@ Notes:
 - Streams via SSE at `/stream`
 - **Memory (🧠)**: Session-specific explicit memory. You can permanently save `working_memory` and `long_term_memory` rules into independent chat branches.
 - **Profile (👤)**: A Globally stored Identity layer enabling persistent rule-following. Set your Name, Role, Style Preferences, and Constraints to be uniformly applied across all future chats regardless of agent or session.
+- **MCP Servers (🔌)**: Dynamically connect your LLM agent to external tools and systems using the Model Context Protocol. Manage plugins, turn servers on or off, and the Assistant will autonomously discover and route capabilities during chats.
 - Agent selector; responses show the active agent name
 - Stats panel shows local tokens, API usage, cost, and session cost (auto-hides when empty)
 

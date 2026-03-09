@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 from time import perf_counter
-from typing import AsyncGenerator, Dict, List, Optional
+from typing import AsyncGenerator, Dict, List, Optional, Any
 
 import aiohttp
 
@@ -35,7 +35,8 @@ class DeepSeekClient:
     async def stream_message(
         self, messages: List[Dict[str, str]], 
         temperature: Optional[float] = None,
-        top_p: Optional[float] = None
+        top_p: Optional[float] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> AsyncGenerator[str, None]:
         headers = {
             "Authorization": f"Bearer {self._config.api_key}",
@@ -56,6 +57,10 @@ class DeepSeekClient:
             "response_format": params.response_format,
             "stop": params.stop,
         }
+        
+        if tools:
+            payload["tools"] = tools
+            
         if payload["top_p"] is None:
             del payload["top_p"]
         if self._config.provider == "deepseek":
@@ -70,6 +75,9 @@ class DeepSeekClient:
         start_time = perf_counter()
         usage: Optional[dict] = None
         timeout = aiohttp.ClientTimeout(sock_read=self._config.read_timeout_seconds)
+        
+        tool_calls_buffer: Dict[int, Dict[str, Any]] = {}
+        
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -105,10 +113,48 @@ class DeepSeekClient:
                         event_usage = event.get("usage")
                         if event_usage:
                             usage = event_usage
-                        delta = event.get("choices", [{}])[0].get("delta", {})
+                            
+                        # Extract delta
+                        choices = event.get("choices", [])
+                        if not choices:
+                            continue
+                            
+                        delta = choices[0].get("delta", {})
+                        
+                        # Handle tool calls accumulation
+                        if "tool_calls" in delta:
+                            for tc in delta["tool_calls"]:
+                                idx = tc.get("index", 0)
+                                if idx not in tool_calls_buffer:
+                                    fn_name = tc.get("function", {}).get("name", "")
+                                    tool_calls_buffer[idx] = {
+                                        "id": tc.get("id", ""),
+                                        "type": "function",
+                                        "function": {
+                                            "name": fn_name,
+                                            "arguments": tc.get("function", {}).get("arguments", "")
+                                        }
+                                    }
+                                    # Yield an early notification to eliminate UI lag while arguments stream
+                                    if fn_name:
+                                        yield json.dumps({"__type__": "tool_call_start", "name": fn_name})
+                                else:
+                                    # Append chunked arguments
+                                    if "function" in tc and "arguments" in tc["function"]:
+                                        tool_calls_buffer[idx]["function"]["arguments"] += tc["function"]["arguments"]
+                        
+                        # Handle text content
                         content = delta.get("content")
                         if content:
                             yield content
+                            
+            # Process strictly after closing the stream if there were tool calls
+            if tool_calls_buffer:
+                tool_calls_list = [v for k, v in sorted(tool_calls_buffer.items())]
+                # Yield a special JSON string identifying the tool calls
+                yield json.dumps({"__type__": "tool_calls", "calls": tool_calls_list})
+                
+
         finally:
             duration = perf_counter() - start_time
             prompt_tokens = usage.get("prompt_tokens") if usage else None

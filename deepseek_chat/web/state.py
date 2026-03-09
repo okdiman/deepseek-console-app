@@ -9,6 +9,8 @@ from ..core.client import DeepSeekClient
 from ..core.config import ClientConfig, load_config
 from ..core.session import ChatSession
 from ..core.task_state import TaskStateMachine
+from ..core.mcp_registry import MCPRegistry
+from ..core.mcp_manager import MCPManager
 
 _config: ClientConfig = load_config()
 
@@ -34,6 +36,9 @@ if _web_context_path:
     )
 
 _client = DeepSeekClient(_config)
+
+_mcp_registry = MCPRegistry.load()
+_mcp_manager = MCPManager(_mcp_registry)
 
 _sessions: Dict[str, ChatSession] = {
     "default": ChatSession(max_messages=_config.context_max_messages)
@@ -99,3 +104,9 @@ def get_default_agent_id() -> str:
 
 def get_default_agent_name() -> str:
     return _AGENT_REGISTRY[_DEFAULT_AGENT_ID]
+
+def get_mcp_registry() -> MCPRegistry:
+    return _mcp_registry
+
+def get_mcp_manager() -> MCPManager:
+    return _mcp_manager
