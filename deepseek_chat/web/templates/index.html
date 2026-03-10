@@ -130,10 +130,10 @@
 
   <!-- Memory Modal -->
   <div id="memoryModal" class="modal">
-    <div class="modal-content" style="width: 480px; max-width: 90vw;">
+    <div class="modal-content">
       <span class="close-btn" id="closeMemory">&times;</span>
       <h2>Brain / Memory</h2>
-      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+      <p>
         Add explicit facts and rules for this session. Memories are securely injected into the AI's prompting core.
       </p>
 
@@ -149,27 +149,27 @@
       </div>
 
       <!-- Working Memory Panel -->
-      <div id="panelWorking" class="memory-panel">
-        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+      <div id="panelWorking" class="memory-panel"
+        style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+        <div style="display: flex; gap: 8px;">
           <input type="text" id="workingInput" class="form-input" placeholder="Task constraints, context..."
             style="flex: 1;">
           <button id="addWorkingBtn" class="primary-btn">Add</button>
         </div>
-        <ul id="workingList" class="memory-list"
-          style="list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto;">
+        <ul id="workingList" class="memory-list">
           <!-- Loaded via JS -->
         </ul>
       </div>
 
       <!-- Long-Term Memory Panel -->
-      <div id="panelLongTerm" class="memory-panel" style="display: none;">
-        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+      <div id="panelLongTerm" class="memory-panel"
+        style="display: none; flex-direction: column; flex: 1; min-height: 0;">
+        <div style="display: flex; gap: 8px;">
           <input type="text" id="longTermInput" class="form-input" placeholder="Rules, preferences, user info..."
             style="flex: 1;">
           <button id="addLongTermBtn" class="primary-btn">Add</button>
         </div>
-        <ul id="longTermList" class="memory-list"
-          style="list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto;">
+        <ul id="longTermList" class="memory-list">
           <!-- Loaded via JS -->
         </ul>
       </div>
@@ -178,48 +178,47 @@
 
   <!-- Profile Modal -->
   <div id="profileModal" class="modal">
-    <div class="modal-content" style="width: 480px; max-width: 90vw;">
+    <div class="modal-content">
       <span class="close-btn" id="closeProfile">&times;</span>
       <h2>User Profile 👤</h2>
-      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+      <p>
         Personalize your agent. This profile is globally saved and dictates how the agent responds to you across all
         sessions.
       </p>
 
-      <form id="profileForm">
+      <form id="profileForm"
+        style="display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; padding-right: 8px;">
         <div class="setting-group">
           <label for="profileName">Name</label>
-          <input type="text" id="profileName" class="form-input" placeholder="e.g. Dmitriy" style="width: 100%;">
+          <input type="text" id="profileName" class="form-input" placeholder="e.g. Dmitriy">
         </div>
 
         <div class="setting-group">
           <label for="profileRole">Role / Profession</label>
-          <input type="text" id="profileRole" class="form-input" placeholder="e.g. Senior Software Engineer"
-            style="width: 100%;">
+          <input type="text" id="profileRole" class="form-input" placeholder="e.g. Senior Software Engineer">
         </div>
 
         <div class="setting-group">
           <label for="profileStyle">Style Preferences</label>
           <textarea id="profileStyle" class="form-input" rows="2"
-            placeholder="e.g. Direct, concise, no fluff, use bullet points"
-            style="width: 100%; resize: vertical;"></textarea>
+            placeholder="e.g. Direct, concise, no fluff, use bullet points" style="resize: vertical;"></textarea>
         </div>
 
         <div class="setting-group">
           <label for="profileFormatting">Formatting Rules</label>
           <textarea id="profileFormatting" class="form-input" rows="2"
-            placeholder="e.g. Always output code in Markdown blocks" style="width: 100%; resize: vertical;"></textarea>
+            placeholder="e.g. Always output code in Markdown blocks" style="resize: vertical;"></textarea>
         </div>
 
         <div class="setting-group">
           <label for="profileConstraints">Global Constraints</label>
           <textarea id="profileConstraints" class="form-input" rows="2"
-            placeholder="e.g. Never use deprecated libraries" style="width: 100%; resize: vertical;"></textarea>
+            placeholder="e.g. Never use deprecated libraries" style="resize: vertical;"></textarea>
         </div>
 
-        <div class="modal-actions">
+        <div class="modal-actions" style="margin-top: auto;">
           <span id="profileStatusMsg"
-            style="font-size: 12px; color: var(--accent); align-self: center; margin-right: auto; opacity: 0; transition: opacity 0.3s;">Saved!</span>
+            style="font-size: 13px; font-weight: 500; color: var(--accent); align-self: center; margin-right: auto; opacity: 0; transition: opacity 0.3s;">Saved!</span>
           <button id="saveProfileBtn" type="button" class="primary-btn">Save Profile</button>
         </div>
       </form>
@@ -228,64 +227,91 @@
 
   <!-- Invariants Modal -->
   <div id="invariantsModal" class="modal">
-    <div class="modal-content" style="width: 480px; max-width: 90vw;">
+    <div class="modal-content">
       <span class="close-btn" id="closeInvariants">&times;</span>
       <h2>Invariants 🛡️</h2>
-      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+      <p>
         Hard constraints the assistant must never violate — architecture decisions, stack restrictions, business rules.
         The assistant will refuse requests that conflict with these invariants.
       </p>
 
-      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-        <input type="text" id="invariantInput" class="form-input" placeholder="e.g. Only Kotlin, no Java"
-          style="flex: 1;">
-        <button id="addInvariantBtn" class="primary-btn">Add</button>
+      <div style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="invariantInput" class="form-input" placeholder="e.g. Only Kotlin, no Java"
+            style="flex: 1;">
+          <button id="addInvariantBtn" class="primary-btn">Add</button>
+        </div>
+        <ul id="invariantsList" class="memory-list">
+          <!-- Loaded via JS -->
+        </ul>
       </div>
-      <ul id="invariantsList" class="memory-list"
-        style="list-style: none; padding: 0; margin: 0; max-height: 260px; overflow-y: auto;">
-        <!-- Loaded via JS -->
-      </ul>
     </div>
   </div>
 
   <!-- MCP Modal -->
   <div id="mcpModal" class="modal">
-    <div class="modal-content" style="width: 540px; max-width: 90vw;">
+    <div class="modal-content" style="width: 540px;">
       <span class="close-btn" id="closeMcp">&times;</span>
       <h2>MCP Servers 🔌</h2>
-      <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+      <p>
         Extend reasoning capabilities by connecting Model Context Protocol (MCP) servers. The agent will autonomously
         discover and use the tools provided by these active servers.
       </p>
 
-      <div style="background: var(--bg-hover); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-        <h3 style="font-size: 14px; margin-top: 0; margin-bottom: 8px;">Add New Server</h3>
-        <form id="addMcpForm" style="display: flex; flex-direction: column; gap: 8px;">
-          <input type="text" id="mcpId" placeholder="Unique ID (e.g. github_server)" class="form-input" required>
-          <input type="text" id="mcpName" placeholder="Display Name (e.g. GitHub Integration)" class="form-input"
-            required>
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="mcpCommand" placeholder="Command (e.g. npx, python)" class="form-input"
-              style="flex: 1;" required>
-            <input type="text" id="mcpArgs"
-              placeholder="Args space-separated (e.g. -y @modelcontextprotocol/server-github)" class="form-input"
-              style="flex: 2;">
+      <div class="mcp-add-server-panel">
+        <div class="mcp-add-server-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <h3>Add New Server</h3>
+        </div>
+        <form id="addMcpForm" class="mcp-add-form" style="margin-bottom: 0;">
+          <div class="mcp-form-row">
+            <div class="mcp-input-group">
+              <label for="mcpId">Unique ID</label>
+              <input type="text" id="mcpId" placeholder="e.g. github_server" class="form-input" required>
+            </div>
+            <div class="mcp-input-group">
+              <label for="mcpName">Display Name</label>
+              <input type="text" id="mcpName" placeholder="e.g. GitHub" class="form-input" required>
+            </div>
           </div>
-          <button type="submit" class="primary-btn" style="align-self: flex-start; margin-top: 4px;">Connect</button>
+          <div class="mcp-form-row" style="grid-template-columns: 1fr 2fr 2fr;">
+            <div class="mcp-input-group">
+              <label for="mcpCommand">Command</label>
+              <input type="text" id="mcpCommand" placeholder="e.g. npx" class="form-input" required>
+            </div>
+            <div class="mcp-input-group">
+              <label for="mcpArgs">Arguments <span
+                  style="opacity: 0.5; font-weight: normal; font-size: 10px;">(space-separated)</span></label>
+              <input type="text" id="mcpArgs" placeholder="e.g. -y @modelcontextprotocol/server-github"
+                class="form-input">
+            </div>
+            <div class="mcp-input-group">
+              <label for="mcpEnv">Environment <span
+                  style="opacity: 0.5; font-weight: normal; font-size: 10px;">(KEY=val, KEY2=val2)</span></label>
+              <input type="text" id="mcpEnv" placeholder="e.g. GITHUB_TOKEN=abc" class="form-input">
+            </div>
+          </div>
+          <div class="mcp-form-footer">
+            <button type="submit" class="primary-btn mcp-connect-btn">Connect Server</button>
+          </div>
         </form>
       </div>
 
       <h3
-        style="font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 4px;">
-        Configured Servers</h3>
-      <div id="mcpServersList"
-        style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto;">
+        style="font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; color: var(--text-primary);">
+        Configured Servers
+      </h3>
+      <div id="mcpServersList">
         <!-- Loaded via JS -->
       </div>
     </div>
   </div>
 
-  <script src="/static/app.js?v=17"></script>
+  <script src="/static/app.js?v=22"></script>
 </body>
 
 </html>

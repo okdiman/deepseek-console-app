@@ -190,7 +190,7 @@ class MCPManager:
         if not session:
             raise RuntimeError(f"Server {server_id} is not running.")
             
-        # Call the tool via the MCP SDK
+        # Call the tool via the MCP SDK, using the ORIGINAL name, not the prefixed one
         logger.info(f"Executing tool {original_name} on server {server_id}")
         response = await session.call_tool(original_name, arguments)
         

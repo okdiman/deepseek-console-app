@@ -388,51 +388,58 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderMcpList(servers, allTools) {
     mcpServersList.innerHTML = "";
     if (servers.length === 0) {
-      mcpServersList.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px;">No MCP servers configured yet.</div>';
+      mcpServersList.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px; text-align: center; padding: 20px 0;">No MCP servers configured yet.</div>';
       return;
     }
 
     servers.forEach(server => {
+      const isConnecting = server.enabled && allTools.filter(t => t.function.name.startsWith(`${server.id}__`)).length === 0;
+
       const container = document.createElement("div");
-      container.className = "memory-panel";
-      container.style.display = "block";
-      container.style.border = "1px solid var(--border-subtle)";
+      container.className = "mcp-server-card";
 
       const header = document.createElement("div");
-      header.style.display = "flex";
-      header.style.justifyContent = "space-between";
-      header.style.alignItems = "center";
-      header.style.marginBottom = "8px";
+      header.className = "mcp-server-header";
 
-      const title = document.createElement("div");
-      title.innerHTML = `<strong>${server.name}</strong> <span style="font-size: 11px; color: var(--text-secondary);">(${server.id})</span>`;
+      const titlePanel = document.createElement("div");
+      titlePanel.className = "mcp-server-title";
+
+      const statusIcon = server.enabled ? (isConnecting ? "⏳" : "🟢") : "⚪";
+      titlePanel.innerHTML = `<span style="font-size: 16px;">${statusIcon}</span> ${server.name} <span class="mcp-server-status ${server.enabled ? 'mcp-status-on' : 'mcp-status-off'}">${server.enabled ? (isConnecting ? 'Connecting...' : 'Connected') : 'Disabled'}</span>`;
 
       const controls = document.createElement("div");
-      controls.style.display = "flex";
-      controls.style.gap = "8px";
-      controls.style.alignItems = "center";
+      controls.className = "mcp-server-actions";
 
-      // Toggle switch logic represented as a button for simplicity
-      const toggleBtn = document.createElement("button");
-      toggleBtn.className = server.enabled ? "primary-btn" : "secondary-btn";
-      toggleBtn.textContent = server.enabled ? "ON" : "OFF";
-      toggleBtn.style.padding = "2px 8px";
-      toggleBtn.style.fontSize = "12px";
+      // Toggle switch
+      const switchLabel = document.createElement("label");
+      switchLabel.className = "mcp-toggle-switch";
+      switchLabel.title = server.enabled ? "Disable Server" : "Enable Server";
 
-      toggleBtn.addEventListener("click", async () => {
-        const newState = !server.enabled;
+      const switchInput = document.createElement("input");
+      switchInput.type = "checkbox";
+      switchInput.checked = server.enabled;
+      switchInput.addEventListener("change", async () => {
+        const newState = switchInput.checked;
+        switchInput.disabled = true;
         const res = await fetch(`/mcp/${encodeURIComponent(server.id)}/toggle`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enabled: newState })
         });
         if (res.ok) loadMcpServers();
+        else switchInput.disabled = false;
       });
+
+      const slider = document.createElement("span");
+      slider.className = "mcp-toggle-slider";
+
+      switchLabel.appendChild(switchInput);
+      switchLabel.appendChild(slider);
 
       const delBtn = document.createElement("button");
       delBtn.className = "memory-del-btn";
       delBtn.innerHTML = "🗑";
-      delBtn.title = "Delete server";
+      delBtn.title = `Delete ${server.name}`;
       delBtn.addEventListener("click", async () => {
         if (confirm(`Delete MCP server ${server.name}?`)) {
           const res = await fetch(`/mcp/${encodeURIComponent(server.id)}`, { method: "DELETE" });
@@ -440,38 +447,28 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      controls.appendChild(toggleBtn);
+      controls.appendChild(switchLabel);
       controls.appendChild(delBtn);
-      header.appendChild(title);
+
+      header.appendChild(titlePanel);
       header.appendChild(controls);
       container.appendChild(header);
 
       const cmdSpan = document.createElement("div");
-      cmdSpan.style.fontSize = "12px";
-      cmdSpan.style.fontFamily = "monospace";
-      cmdSpan.style.color = "var(--text-secondary)";
-      cmdSpan.style.marginBottom = "8px";
+      cmdSpan.className = "mcp-server-cmd";
       cmdSpan.textContent = `$ ${server.command} ${server.args.join(" ")}`;
       container.appendChild(cmdSpan);
 
       // Tools List
       if (server.enabled) {
-        // Filter tools belonging to this server (they are prefixed by server_id__)
         const serverTools = allTools.filter(t => t.function.name.startsWith(`${server.id}__`));
         if (serverTools.length > 0) {
           const toolsDiv = document.createElement("div");
-          toolsDiv.style.fontSize = "12px";
-          toolsDiv.innerHTML = `<strong style="color: var(--accent);">Available Tools (${serverTools.length}):</strong><br>`;
+          toolsDiv.className = "mcp-tools-list";
           serverTools.forEach(t => {
             const originalName = t.function.name.replace(`${server.id}__`, "");
-            toolsDiv.innerHTML += `<span style="display:inline-block; background: var(--bg-hover); padding: 2px 6px; border-radius: 4px; margin: 2px 4px 2px 0;">🔧 ${originalName}</span>`;
+            toolsDiv.innerHTML += `<span class="mcp-tool-badge">🔧 ${originalName}</span>`;
           });
-          container.appendChild(toolsDiv);
-        } else {
-          const toolsDiv = document.createElement("div");
-          toolsDiv.style.fontSize = "12px";
-          toolsDiv.style.color = "var(--warning)";
-          toolsDiv.textContent = "Connecting or no tools found...";
           container.appendChild(toolsDiv);
         }
       }
@@ -501,18 +498,29 @@ document.addEventListener("DOMContentLoaded", () => {
       const nameInput = document.getElementById("mcpName").value.trim();
       const cmdInput = document.getElementById("mcpCommand").value.trim();
       const argsInput = document.getElementById("mcpArgs").value.trim();
+      const envInput = (document.getElementById("mcpEnv")?.value || "").trim();
 
       if (!idInput || !nameInput || !cmdInput) return;
 
       // Basic argument splitting (doesn't handle quoted strings perfectly, but good enough for simple args)
       const argsArray = argsInput ? argsInput.split(/\s+/) : [];
 
+      const envObj = {};
+      if (envInput) {
+        envInput.split(',').forEach(pair => {
+          const [k, ...v] = pair.split('=');
+          if (k && k.trim()) {
+            envObj[k.trim()] = v.join('=').trim();
+          }
+        });
+      }
+
       const payload = {
         id: idInput.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
         name: nameInput,
         command: cmdInput,
         args: argsArray,
-        env: {},
+        env: envObj,
         enabled: true
       };
 

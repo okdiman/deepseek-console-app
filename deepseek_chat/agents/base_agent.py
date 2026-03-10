@@ -72,73 +72,77 @@ class BaseAgent:
         response_parts: List[str] = []
         try:
             # 2. Execute LLM stream
-            async for chunk in self._client.stream_message(
-                history_messages, temperature=temperature, top_p=top_p, tools=tools_payload
-            ):
-                import json
-                try:
-                    if chunk.startswith('{"__type__": "tool_call_start"'):
-                        data = json.loads(chunk)
-                        name = data.get("name", "unknown_tool")
-                        yield f"\n\n⚙️ *Executing Tool `{name}`...*\n"
-                        continue
-
-                    # Check if the chunk is our special tool_calls payload
-                    if chunk.startswith('{"__type__": "tool_calls"'):
-                        data = json.loads(chunk)
-                        
-                        # We only keep the text immediately preceding the tool call to save
-                        response = "".join(response_parts).strip()
-                        if response:
-                            self._session.add_assistant(response)
-                        
-                        tool_calls = data["calls"]
-                        
-                        # Append ONE assistant message containing all tool calls
-                        self._session.add_tool_calls(tool_calls)
-                        
-                        # Execute tools matching the payload
-                        for tc in tool_calls:
-                            fn_name = tc["function"]["name"]
-                            fn_args_str = tc["function"]["arguments"]
-                            
-                            try:
-                                args_dict = json.loads(fn_args_str) if fn_args_str else {}
-                            except json.JSONDecodeError:
-                                args_dict = {}
-                            
-                            try:
-                                result = await mcp_manager.execute_tool(fn_name, args_dict)
-                                yield f"✅ *Tool returned result*\n\n"
-                            except Exception as e:
-                                result = f"Error executing tool: {e}"
-                                yield f"❌ *Tool failed: {e}*\n\n"
-                                
-                            self._session.add_tool_result(
-                                tool_call_id=tc["id"],
-                                name=fn_name,
-                                content=str(result)
-                            )
-                            
-                        # Recurse with new messages to let the model generate the final response
-                        new_history_messages = context_strategy.build_history_messages(system_prompt)
-                        async for follow_up_chunk in self._client.stream_message(
-                            new_history_messages, temperature=temperature, top_p=top_p, tools=tools_payload
-                        ):
-                             response_parts.append(follow_up_chunk)
-                             yield follow_up_chunk
-                        
-                        return # End current outer stream since inner stream handled it
-
-                except Exception as e:
-                    import traceback
-                    print(f"ERROR IN TOOL CALL RECURSION: {e}")
-                    traceback.print_exc()
-                    yield f"\n\n*(System Error during tool recursion: {e})*\n"
-                    return
+            while True:
+                tool_call_executed = False
                 
-                response_parts.append(chunk)
-                yield chunk
+                async for chunk in self._client.stream_message(
+                    history_messages, temperature=temperature, top_p=top_p, tools=tools_payload
+                ):
+                    import json
+                    try:
+                        if chunk.startswith('{"__type__": "tool_call_start"'):
+                            data = json.loads(chunk)
+                            name = data.get("name", "unknown_tool")
+                            yield f"\n\n⚙️ *Executing Tool `{name}`...*\n"
+                            continue
+
+                        # Check if the chunk is our special tool_calls payload
+                        if chunk.startswith('{"__type__": "tool_calls"'):
+                            data = json.loads(chunk)
+                            
+                            # We only keep the text immediately preceding the tool call to save
+                            response = "".join(response_parts).strip()
+                            if response:
+                                self._session.add_assistant(response)
+                            response_parts.clear()
+                            
+                            tool_calls = data["calls"]
+                            
+                            # Append ONE assistant message containing all tool calls
+                            self._session.add_tool_calls(tool_calls)
+                            
+                            # Execute tools matching the payload
+                            for tc in tool_calls:
+                                fn_name = tc["function"]["name"]
+                                fn_args_str = tc["function"]["arguments"]
+                                
+                                try:
+                                    args_dict = json.loads(fn_args_str) if fn_args_str else {}
+                                except json.JSONDecodeError:
+                                    args_dict = {}
+                                
+                                try:
+                                    result = await mcp_manager.execute_tool(fn_name, args_dict)
+                                    yield f"✅ *Tool returned result*\n\n"
+                                except Exception as e:
+                                    result = f"Error executing tool: {e}"
+                                    yield f"❌ *Tool failed: {e}*\n\n"
+                                    
+                                self._session.add_tool_result(
+                                    tool_call_id=tc["id"],
+                                    name=fn_name,
+                                    content=str(result)
+                                )
+                                
+                            tool_call_executed = True
+                            
+                            # Re-build history messages and break to outer loop to continue generation
+                            history_messages = context_strategy.build_history_messages(system_prompt)
+                            break
+
+                    except Exception as e:
+                        import traceback
+                        print(f"ERROR IN TOOL CALL HANDLING: {e}")
+                        traceback.print_exc()
+                        yield f"\n\n*(System Error during tool handling: {e})*\n"
+                        return
+                    
+                    response_parts.append(chunk)
+                    yield chunk
+
+                if not tool_call_executed:
+                    break  # Finished generating the final response without any tool calls
+
         finally:
             response = "".join(response_parts).strip()
             if response:
