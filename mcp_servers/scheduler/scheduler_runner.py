@@ -103,7 +103,8 @@ def _execute_periodic_collect(task: dict) -> str:
         
         # Retry logic for when FastAPI hasn't fully started yet or is restarting
         import time
-        import urllib.error
+        from urllib.error import URLError
+        
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -117,7 +118,7 @@ def _execute_periodic_collect(task: dict) -> str:
                         return f"❌ Ошибка агента: {error_msg}"
                         
                     return f"🤖 Результат:\n{result.get('text', '')}"
-            except urllib.error.URLError as e:
+            except URLError as e:
                 if "Connection refused" in str(e) and attempt < max_retries - 1:
                     logger.warning("Connection refused to backend (attempt %d/%d). Waiting 3s...", attempt + 1, max_retries)
                     time.sleep(3)
