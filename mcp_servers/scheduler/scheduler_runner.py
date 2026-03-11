@@ -101,16 +101,28 @@ def _execute_periodic_collect(task: dict) -> str:
             method="POST"
         )
         
-        # We give it a generous timeout because Agent execution takes a while
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            data = resp.read().decode("utf-8")
-            result = json.loads(data)
-            
-            if not result.get("ok"):
-                error_msg = result.get("error", "Unknown error")
-                return f"❌ Ошибка агента: {error_msg}"
-                
-            return f"🤖 Результат:\n{result.get('text', '')}"
+        # Retry logic for when FastAPI hasn't fully started yet or is restarting
+        import time
+        import urllib.error
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # We give it a generous timeout because Agent execution takes a while
+                with urllib.request.urlopen(req, timeout=300) as resp:
+                    data = resp.read().decode("utf-8")
+                    result = json.loads(data)
+                    
+                    if not result.get("ok"):
+                        error_msg = result.get("error", "Unknown error")
+                        return f"❌ Ошибка агента: {error_msg}"
+                        
+                    return f"🤖 Результат:\n{result.get('text', '')}"
+            except urllib.error.URLError as e:
+                if "Connection refused" in str(e) and attempt < max_retries - 1:
+                    logger.warning("Connection refused to backend (attempt %d/%d). Waiting 3s...", attempt + 1, max_retries)
+                    time.sleep(3)
+                    continue
+                raise
             
     except Exception as e:
         logger.error("Error executing periodic_collect agent task: %s", e, exc_info=True)
@@ -162,6 +174,10 @@ async def run_scheduler_loop(db_path: str = store.DB_PATH) -> None:
     """
     logger.info("Scheduler runner started (interval=%ds)", CHECK_INTERVAL_SECONDS)
     store.init_db(db_path)
+    
+    # Wait for the main FastAPI server to fully start and bind to the port
+    # before we attempt to execute any AI tasks via HTTP requests.
+    await asyncio.sleep(5)
 
     while True:
         try:
