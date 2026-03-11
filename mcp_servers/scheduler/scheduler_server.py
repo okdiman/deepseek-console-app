@@ -77,26 +77,26 @@ def create_reminder(
 def create_periodic_task(
     task_type: str = "periodic_collect",
     name: str = "Периодический сбор",
-    schedule: str = "every_5m",
-    url: str = "",
+    schedule: str = "every_1m",
+    prompt: str = "",
     target_task_id: str = "",
 ) -> str:
     """Создаёт периодическую задачу сбора данных или генерации сводки.
-    task_type: 'periodic_collect' (сбор данных с URL) или 'periodic_summary' (генерация сводки).
+    task_type: 'periodic_collect' (сбор данных через AI) или 'periodic_summary' (генерация сводки).
     name: Название задачи.
     schedule: Расписание — 'every_1m', 'every_5m', 'every_30m', 'every_1h', 'daily_HH:MM'.
-    url: URL для сбора данных (только для periodic_collect).
+    prompt: Инструкция для искусственного интеллекта (только для periodic_collect). Например: 'Получи топ-10 статей с Hacker News'.
     target_task_id: ID задачи для сводки (только для periodic_summary, необязательно).
     """
     if task_type not in ("periodic_collect", "periodic_summary"):
         return "❌ task_type должен быть 'periodic_collect' или 'periodic_summary'"
 
-    if task_type == "periodic_collect" and not url:
-        return "❌ Для periodic_collect нужно указать url"
+    if task_type == "periodic_collect" and not prompt:
+        return "❌ Для periodic_collect нужно указать prompt (задачу для агента)"
 
     payload = {}
-    if url:
-        payload["url"] = url
+    if prompt:
+        payload["prompt"] = prompt
     if target_task_id:
         payload["target_task_id"] = target_task_id
 
