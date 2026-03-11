@@ -52,7 +52,7 @@ def create_reminder(
     name: str = "",
 ) -> str:
     """Создаёт напоминание. По умолчанию — однократное, через delay_minutes минут.
-    Можно указать schedule для периодических: 'every_5m', 'every_1h', 'daily_09:00'.
+    Можно указать schedule для периодических: 'every_1m', 'every_5m', 'every_1h', 'daily_09:00'.
     text: Текст напоминания.
     delay_minutes: Через сколько минут первый раз сработает (по умолчанию 1).
     schedule: Расписание — 'once', 'every_Nm', 'every_Nh', 'daily_HH:MM'.
@@ -84,7 +84,7 @@ def create_periodic_task(
     """Создаёт периодическую задачу сбора данных или генерации сводки.
     task_type: 'periodic_collect' (сбор данных с URL) или 'periodic_summary' (генерация сводки).
     name: Название задачи.
-    schedule: Расписание — 'every_5m', 'every_30m', 'every_1h', 'daily_HH:MM'.
+    schedule: Расписание — 'every_1m', 'every_5m', 'every_30m', 'every_1h', 'daily_HH:MM'.
     url: URL для сбора данных (только для periodic_collect).
     target_task_id: ID задачи для сводки (только для periodic_summary, необязательно).
     """

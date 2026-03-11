@@ -8,7 +8,9 @@ import asyncio
 import json
 import logging
 import re
+import time
 import urllib.request
+from urllib.error import URLError
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -102,9 +104,6 @@ def _execute_periodic_collect(task: dict) -> str:
         )
         
         # Retry logic for when FastAPI hasn't fully started yet or is restarting
-        import time
-        from urllib.error import URLError
-        
         max_retries = 3
         for attempt in range(max_retries):
             try:
