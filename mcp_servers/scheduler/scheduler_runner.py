@@ -104,9 +104,20 @@ def _execute_periodic_collect(task: dict) -> str:
         # Let's use asyncio.run() because we are in a separate thread.
         
         async def _run_agent():
+            # The background thread needs its own initialized MCPManager 
+            # (or at least needs to ensure servers are started so tools exist)
+            from deepseek_chat.web.state import get_mcp_manager
+            manager = get_mcp_manager()
+            # Start MCP servers if not already started in this process/loop
+            if not manager.get_aggregated_tools():
+                await manager.start_all()
+                
             response_chunks = []
             async for chunk in agent.stream_reply(prompt, temperature=0.3):
                 response_chunks.append(chunk)
+                
+            # If we started them just for this, shut them down to free memory?
+            # Better to leave them running since this thread will run again.
             return "".join(response_chunks)
             
         result_text = asyncio.run(_run_agent())
