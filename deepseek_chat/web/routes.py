@@ -350,3 +350,43 @@ async def scheduler_notifications(since: str = Query("")) -> JSONResponse:
         return JSONResponse({"results": results})
     except Exception as e:
         return JSONResponse({"results": [], "error": str(e)})
+
+class AgentTaskRequest(BaseModel):
+    prompt: str
+    max_length: int = 4000
+
+@router.post("/scheduler/execute_agent")
+async def execute_agent_task(payload: AgentTaskRequest) -> JSONResponse:
+    """Execute an autonomous background agent task and return the text."""
+    try:
+        from .state import get_agent, delete_session
+        import datetime
+        
+        # Temp session specifically for this background task run
+        temp_session_id = f"bg_task_{datetime.datetime.now().timestamp()}"
+        agent = get_agent("general", session_id=temp_session_id)
+        
+        autonomous_prompt = (
+            "You are running as an autonomous background scheduled task. "
+            "You MUST fully complete the user's request without asking for permission "
+            "or waiting for follow-ups. If you use a tool that returns IDs or partial data, "
+            "you MUST immediately use follow-up tools (like fetching the actual item details) "
+            "to provide a complete, human-readable final response.\n\n"
+            f"User Request: {payload.prompt}"
+        )
+        
+        response_chunks = []
+        async for chunk in agent.stream_reply(autonomous_prompt, temperature=0.3):
+            response_chunks.append(chunk)
+
+        delete_session(temp_session_id)
+        
+        result_text = "".join(response_chunks)
+        if len(result_text) > payload.max_length:
+            result_text = result_text[:payload.max_length] + f"\n... (обрезано, всего {len(result_text)} символов)"
+            
+        return JSONResponse({"ok": True, "text": result_text})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)

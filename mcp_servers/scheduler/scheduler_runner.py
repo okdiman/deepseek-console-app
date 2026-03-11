@@ -16,8 +16,6 @@ import sys
 import os
 # Add the scheduler package directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-# Add the project root directory to path to allow importing deepseek_chat
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 import scheduler_store as store
 
 logger = logging.getLogger(__name__)
@@ -88,65 +86,35 @@ def _execute_periodic_collect(task: dict) -> str:
             return "❌ Промпт не указан в payload задачи"
 
     try:
-        # Import dynamically to avoid circular dependencies
-        from deepseek_chat.web.state import get_agent, get_session
-        from deepseek_chat.core.session import ChatSession
+        # Instead of running the LLM in this process (which creates a second isolated
+        # instance of the entire web app and its MCP managers, causing infinite loops),
+        # we ask the main running FastAPI application to execute the agent.
+        req_data = json.dumps({
+            "prompt": prompt,
+            "max_length": payload.get("max_length", 4000)
+        }).encode("utf-8")
         
-        # Create a temporary distinct session for this task run
-        temp_session_id = f"scheduler_task_{task['id']}_{datetime.now().timestamp()}"
-        agent = get_agent("general", session_id=temp_session_id)
+        req = urllib.request.Request(
+            "http://127.0.0.1:8000/scheduler/execute_agent",
+            data=req_data,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
         
-        # We need to run the async generator from synchronous thread or async thread.
-        # Since _execute_periodic_collect is already awaited via asyncio.to_thread OR we run it
-        # Actually, this is called inside _tick which uses: await asyncio.to_thread(executor, task)
-        # So we are in a background thread here. We must create a new event loop or use asyncio.run
-        # Wait, if this is called from a sync thread via to_thread, we can't `await` inside it directly.
-        # Let's use asyncio.run() because we are in a separate thread.
-        
-        async def _run_agent():
-            # The background thread needs its own initialized MCPManager 
-            # (or at least needs to ensure servers are started so tools exist)
-            from deepseek_chat.web.state import get_mcp_manager
-            manager = get_mcp_manager()
-            # Start MCP servers if not already started in this process/loop
-            if not manager.get_aggregated_tools():
-                await manager.start_all()
+        # We give it a generous timeout because Agent execution takes a while
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            data = resp.read().decode("utf-8")
+            result = json.loads(data)
+            
+            if not result.get("ok"):
+                error_msg = result.get("error", "Unknown error")
+                return f"❌ Ошибка агента: {error_msg}"
                 
-            # Wrap the user prompt in an autonomous instruction
-            autonomous_prompt = (
-                "You are running as an autonomous background scheduled task. "
-                "You MUST fully complete the user's request without asking for permission "
-                "or waiting for follow-ups. If you use a tool that returns IDs or partial data, "
-                "you MUST immediately use follow-up tools (like fetching the actual item details) "
-                "to provide a complete, human-readable final response.\n\n"
-                f"User Request: {prompt}"
-            )
+            return f"🤖 Результат:\n{result.get('text', '')}"
             
-            response_chunks = []
-            async for chunk in agent.stream_reply(autonomous_prompt, temperature=0.3):
-                response_chunks.append(chunk)
-                
-            # If we started them just for this, shut them down to free memory?
-            # Better to leave them running since this thread will run again.
-            return "".join(response_chunks)
-            
-        result_text = asyncio.run(_run_agent())
-        
-        # Clean up the temp session to avoid memory leaks
-        from deepseek_chat.web.state import delete_session
-        delete_session(temp_session_id)
-
-        # Truncate if it's absurdly long
-        max_len = payload.get("max_length", 4000)
-        if len(result_text) > max_len:
-            result_text = result_text[:max_len] + f"\n... (обрезано, всего {len(result_text)} символов)"
-            
-        return f"🤖 Результат:\n{result_text}"
-        
     except Exception as e:
         logger.error("Error executing periodic_collect agent task: %s", e, exc_info=True)
-        return f"❌ Ошибка выполнения AI-задачи: {e}"
-
+        return f"❌ Ошибка вызова AI-агента (возможно, локальный сервер не запущен): {e}"
 
 def _execute_periodic_summary(task: dict) -> str:
     """Execute a summary task — aggregates recent results for a target task."""
