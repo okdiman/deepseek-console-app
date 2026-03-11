@@ -112,8 +112,18 @@ def _execute_periodic_collect(task: dict) -> str:
             if not manager.get_aggregated_tools():
                 await manager.start_all()
                 
+            # Wrap the user prompt in an autonomous instruction
+            autonomous_prompt = (
+                "You are running as an autonomous background scheduled task. "
+                "You MUST fully complete the user's request without asking for permission "
+                "or waiting for follow-ups. If you use a tool that returns IDs or partial data, "
+                "you MUST immediately use follow-up tools (like fetching the actual item details) "
+                "to provide a complete, human-readable final response.\n\n"
+                f"User Request: {prompt}"
+            )
+            
             response_chunks = []
-            async for chunk in agent.stream_reply(prompt, temperature=0.3):
+            async for chunk in agent.stream_reply(autonomous_prompt, temperature=0.3):
                 response_chunks.append(chunk)
                 
             # If we started them just for this, shut them down to free memory?
