@@ -292,3 +292,61 @@ async def toggle_mcp_server(server_id: str, payload: dict) -> JSONResponse:
         await manager.stop_server(server_id)
         
     return JSONResponse({"ok": True, "enabled": enabled})
+
+
+# ── Scheduler endpoints ──────────────────────────────────
+
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'mcp_servers'))
+
+@router.get("/scheduler/status")
+async def scheduler_status() -> JSONResponse:
+    """Scheduler dashboard data — reads SQLite directly."""
+    try:
+        from scheduler import scheduler_store as store
+        store.init_db()
+        tasks = store.get_tasks()
+        summary = store.get_aggregated_summary()
+        return JSONResponse({"tasks": tasks, "summary": summary})
+    except Exception as e:
+        return JSONResponse({"tasks": [], "summary": {}, "error": str(e)})
+
+@router.post("/scheduler/task/{task_id}/pause")
+async def scheduler_pause_task(task_id: str) -> JSONResponse:
+    try:
+        from scheduler import scheduler_store as store
+        store.update_task(task_id, status="paused")
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+@router.post("/scheduler/task/{task_id}/resume")
+async def scheduler_resume_task(task_id: str) -> JSONResponse:
+    try:
+        from scheduler import scheduler_store as store
+        store.update_task(task_id, status="active")
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+@router.delete("/scheduler/task/{task_id}")
+async def scheduler_delete_task(task_id: str) -> JSONResponse:
+    try:
+        from scheduler import scheduler_store as store
+        store.delete_task(task_id)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+@router.get("/scheduler/notifications")
+async def scheduler_notifications(since: str = Query("")) -> JSONResponse:
+    """Return new scheduler results since the given ISO timestamp."""
+    try:
+        from scheduler import scheduler_store as store
+        store.init_db()
+        if not since:
+            return JSONResponse({"results": []})
+        results = store.get_results_since(since)
+        return JSONResponse({"results": results})
+    except Exception as e:
+        return JSONResponse({"results": [], "error": str(e)})

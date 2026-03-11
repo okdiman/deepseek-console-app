@@ -15,6 +15,8 @@ from deepseek_chat.core.task_state import TaskStateMachine, TaskPhase
 def make_agent(task_machine=None):
     """Create a mock BaseAgent with optional task machine."""
     agent = MagicMock()
+    # Explicit False so getattr(..., False) returns False instead of a truthy Mock
+    agent._skip_after_stream_markers = False
     if task_machine is not None:
         agent._task_machine = task_machine
     else:

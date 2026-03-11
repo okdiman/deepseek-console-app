@@ -1,0 +1,291 @@
+/* ── Scheduler Modal ── */
+.scheduler-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.scheduler-stat-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+    transition: background 0.2s;
+}
+
+.scheduler-stat-card:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.scheduler-stat-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.scheduler-stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* Task list */
+.scheduler-tasks-list {
+    max-height: 250px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.scheduler-tasks-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scheduler-tasks-list::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+}
+
+.scheduler-task-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.scheduler-task-card:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.scheduler-task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.scheduler-task-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.scheduler-task-id {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 10px;
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.scheduler-task-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.scheduler-task-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.scheduler-task-actions button {
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.scheduler-task-actions button:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.scheduler-task-actions button.danger:hover {
+    background: rgba(229, 90, 90, 0.1);
+    color: var(--error);
+    border-color: rgba(229, 90, 90, 0.3);
+}
+
+/* Status badges */
+.scheduler-status-badge {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.scheduler-status-active {
+    background: rgba(46, 160, 67, 0.15);
+    color: #3fb950;
+}
+
+.scheduler-status-paused {
+    background: rgba(210, 153, 34, 0.15);
+    color: #d29922;
+}
+
+.scheduler-status-completed {
+    background: rgba(94, 129, 212, 0.15);
+    color: #92abec;
+}
+
+.scheduler-type-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    background: rgba(94, 129, 212, 0.1);
+    border: 1px solid rgba(94, 129, 212, 0.2);
+    color: #92abec;
+}
+
+/* Results list */
+.scheduler-results-list {
+    max-height: 180px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.scheduler-results-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scheduler-results-list::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+}
+
+.scheduler-result-item {
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: background 0.2s;
+}
+
+.scheduler-result-item:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.scheduler-result-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+.scheduler-result-task-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.scheduler-result-time {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.scheduler-result-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+.scheduler-empty {
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px 0;
+    opacity: 0.6;
+}
+
+/* ── Toast notifications ── */
+.scheduler-toast-container {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.scheduler-toast {
+    pointer-events: auto;
+    background: var(--bg-main);
+    border: 1px solid rgba(94, 129, 212, 0.4);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-width: 300px;
+    max-width: 420px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    animation: toastSlideIn 0.4s ease-out;
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.scheduler-toast.fade-out {
+    opacity: 0;
+    transform: translateX(40px);
+}
+
+.scheduler-toast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.scheduler-toast-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.scheduler-toast-time {
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.scheduler-toast-body {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(60px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}

@@ -11,3 +11,5 @@
 /* Settings, memory, profile modals */
 @import url("css/task.css");
 /* Task state panel */
+@import url("css/scheduler.css");
+/* Scheduler modal */

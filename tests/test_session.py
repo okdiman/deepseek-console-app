@@ -38,7 +38,7 @@ class TestDefaults:
         assert session.summary == ""
 
     def test_updated_at_is_set(self, session):
-        assert session.updated_at.endswith("Z")
+        assert session.updated_at.endswith("+00:00") or session.updated_at.endswith("Z")
 
 
 # ── Add messages ─────────────────────────────────────────

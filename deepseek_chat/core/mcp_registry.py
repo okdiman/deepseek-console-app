@@ -35,6 +35,14 @@ class MCPRegistry:
                         args=["mcp_servers/demo_server.py"],
                         env={},
                         enabled=True
+                    ),
+                    MCPServerConfig(
+                        id="scheduler",
+                        name="Scheduler Server",
+                        command="python",
+                        args=["mcp_servers/scheduler/scheduler_server.py"],
+                        env={},
+                        enabled=True
                     )
                 ]
             )

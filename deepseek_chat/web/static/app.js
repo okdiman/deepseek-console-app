@@ -1182,4 +1182,218 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(loadTaskState, 300);
     }
   });
+
+  // ── Scheduler Modal Logic ─────────────────────────────────
+  const schedulerBtn = document.getElementById("schedulerBtn");
+  const schedulerModal = document.getElementById("schedulerModal");
+  const closeScheduler = document.getElementById("closeScheduler");
+  const schedulerStats = document.getElementById("schedulerStats");
+  const schedulerTasksList = document.getElementById("schedulerTasksList");
+  const schedulerResultsList = document.getElementById("schedulerResultsList");
+  let schedulerRefreshInterval = null;
+
+  async function loadSchedulerData() {
+    try {
+      const res = await fetch("/scheduler/status");
+      if (res.ok) {
+        const data = await res.json();
+        renderSchedulerStats(data.summary || {});
+        renderSchedulerTasks(data.tasks || []);
+        renderSchedulerResults(data.summary?.recent_results || []);
+      }
+    } catch (e) { console.error("Failed to load scheduler data", e); }
+  }
+
+  function renderSchedulerStats(summary) {
+    schedulerStats.innerHTML = `
+      <div class="scheduler-stat-card">
+        <div class="scheduler-stat-value">${summary.total_tasks || 0}</div>
+        <div class="scheduler-stat-label">Total</div>
+      </div>
+      <div class="scheduler-stat-card">
+        <div class="scheduler-stat-value" style="color: #3fb950;">${summary.active || 0}</div>
+        <div class="scheduler-stat-label">Active</div>
+      </div>
+      <div class="scheduler-stat-card">
+        <div class="scheduler-stat-value" style="color: #d29922;">${summary.paused || 0}</div>
+        <div class="scheduler-stat-label">Paused</div>
+      </div>
+      <div class="scheduler-stat-card">
+        <div class="scheduler-stat-value" style="color: #92abec;">${summary.completed || 0}</div>
+        <div class="scheduler-stat-label">Completed</div>
+      </div>
+    `;
+  }
+
+  function renderSchedulerTasks(tasks) {
+    if (tasks.length === 0) {
+      schedulerTasksList.innerHTML = '<div class="scheduler-empty">No tasks yet. Ask the agent to create a reminder or periodic task.</div>';
+      return;
+    }
+
+    schedulerTasksList.innerHTML = "";
+    tasks.forEach(task => {
+      const statusClass = `scheduler-status-${task.status}`;
+      const statusIcons = { active: "🟢", paused: "⏸️", completed: "✅", failed: "❌" };
+      const typeLabels = { reminder: "⏰ Reminder", periodic_collect: "📊 Collect", periodic_summary: "📋 Summary" };
+
+      const card = document.createElement("div");
+      card.className = "scheduler-task-card";
+
+      const nextRun = task.next_run_at ? new Date(task.next_run_at).toLocaleString() : "—";
+      const lastRun = task.last_run_at ? new Date(task.last_run_at).toLocaleString() : "—";
+
+      card.innerHTML = `
+        <div class="scheduler-task-header">
+          <div class="scheduler-task-name">
+            ${statusIcons[task.status] || "❓"} ${task.name}
+            <span class="scheduler-task-id">${task.id}</span>
+          </div>
+          <div class="scheduler-task-actions" id="actions-${task.id}"></div>
+        </div>
+        <div class="scheduler-task-meta">
+          <span class="scheduler-type-badge">${typeLabels[task.type] || task.type}</span>
+          <span class="scheduler-status-badge ${statusClass}">${task.status}</span>
+          <span>📅 ${task.schedule}</span>
+        </div>
+        <div class="scheduler-task-meta" style="opacity: 0.7;">
+          <span>Next: ${nextRun}</span>
+          <span>Last: ${lastRun}</span>
+        </div>
+      `;
+
+      const actionsEl = card.querySelector(`#actions-${task.id}`);
+
+      if (task.status === "active") {
+        const pauseBtn = document.createElement("button");
+        pauseBtn.textContent = "⏸ Pause";
+        pauseBtn.addEventListener("click", async () => {
+          await fetch(`/scheduler/task/${task.id}/pause`, { method: "POST" });
+          loadSchedulerData();
+        });
+        actionsEl.appendChild(pauseBtn);
+      }
+
+      if (task.status === "paused") {
+        const resumeBtn = document.createElement("button");
+        resumeBtn.textContent = "▶ Resume";
+        resumeBtn.addEventListener("click", async () => {
+          await fetch(`/scheduler/task/${task.id}/resume`, { method: "POST" });
+          loadSchedulerData();
+        });
+        actionsEl.appendChild(resumeBtn);
+      }
+
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "🗑 Delete";
+      delBtn.className = "danger";
+      delBtn.addEventListener("click", async () => {
+        if (confirm(`Delete task "${task.name}"?`)) {
+          await fetch(`/scheduler/task/${task.id}`, { method: "DELETE" });
+          loadSchedulerData();
+        }
+      });
+      actionsEl.appendChild(delBtn);
+
+      schedulerTasksList.appendChild(card);
+    });
+  }
+
+  function renderSchedulerResults(results) {
+    if (results.length === 0) {
+      schedulerResultsList.innerHTML = '<div class="scheduler-empty">No results yet.</div>';
+      return;
+    }
+
+    schedulerResultsList.innerHTML = "";
+    results.forEach(r => {
+      const item = document.createElement("div");
+      item.className = "scheduler-result-item";
+      const time = new Date(r.executed_at).toLocaleString();
+      const resultText = (r.result || "").substring(0, 300);
+      item.innerHTML = `
+        <div class="scheduler-result-header">
+          <span class="scheduler-result-task-name">${r.task_name || "—"}</span>
+          <span class="scheduler-result-time">${time}</span>
+        </div>
+        <div class="scheduler-result-content">${resultText}</div>
+      `;
+      schedulerResultsList.appendChild(item);
+    });
+  }
+
+  if (schedulerBtn) {
+    schedulerBtn.addEventListener("click", () => {
+      loadSchedulerData();
+      schedulerModal.style.display = "block";
+      // Auto-refresh every 15 seconds while modal is open
+      schedulerRefreshInterval = setInterval(loadSchedulerData, 15000);
+    });
+  }
+
+  if (closeScheduler) {
+    closeScheduler.addEventListener("click", () => {
+      schedulerModal.style.display = "none";
+      if (schedulerRefreshInterval) {
+        clearInterval(schedulerRefreshInterval);
+        schedulerRefreshInterval = null;
+      }
+    });
+  }
+
+  // ── Scheduler Notification Polling ────────────────────────
+  const toastContainer = document.getElementById("schedulerToastContainer");
+  let lastNotificationCheck = new Date().toISOString();
+
+  function showSchedulerToast(result) {
+    const toast = document.createElement("div");
+    toast.className = "scheduler-toast";
+
+    const taskName = result.task_name || "Scheduler";
+    const time = new Date(result.executed_at).toLocaleTimeString();
+    const text = (result.result || "").substring(0, 250);
+
+    toast.innerHTML = `
+      <div class="scheduler-toast-header">
+        <span class="scheduler-toast-title">📅 ${taskName}</span>
+        <span class="scheduler-toast-time">${time}</span>
+      </div>
+      <div class="scheduler-toast-body">${text}</div>
+    `;
+
+    toastContainer.appendChild(toast);
+
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => {
+      toast.classList.add("fade-out");
+      setTimeout(() => toast.remove(), 400);
+    }, 8000);
+  }
+
+  function injectSchedulerMessage(result) {
+    const taskName = result.task_name || "Scheduler";
+    const text = result.result || "";
+    const msg = `**📅 ${taskName}**\n\n${text}`;
+    addMessage("assistant", msg, "Scheduler");
+  }
+
+  async function checkSchedulerNotifications() {
+    try {
+      const res = await fetch(`/scheduler/notifications?since=${encodeURIComponent(lastNotificationCheck)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results && data.results.length > 0) {
+          data.results.forEach(r => {
+            showSchedulerToast(r);
+            injectSchedulerMessage(r);
+          });
+          // Update the timestamp to the latest result
+          lastNotificationCheck = data.results[data.results.length - 1].executed_at;
+        }
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  // Poll every 15 seconds for new notifications
+  setInterval(checkSchedulerNotifications, 15000);
 });

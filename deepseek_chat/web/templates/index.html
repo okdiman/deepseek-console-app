@@ -33,6 +33,7 @@
           <button id="memoryBtn" type="button" class="icon-btn" title="Memory">🧠</button>
           <button id="invariantsBtn" type="button" class="icon-btn" title="Invariants">🛡️</button>
           <button id="mcpBtn" type="button" class="icon-btn" title="MCP Servers">🔌</button>
+          <button id="schedulerBtn" type="button" class="icon-btn" title="Scheduler">📅</button>
           <button id="settingsBtn" type="button" class="icon-btn" title="Settings">⚙️</button>
           <button id="clearBtn" type="button">Clear</button>
         </div>
@@ -311,7 +312,39 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=22"></script>
+  <!-- Scheduler Toast Notifications -->
+  <div id="schedulerToastContainer" class="scheduler-toast-container"></div>
+
+  <!-- Scheduler Modal -->
+  <div id="schedulerModal" class="modal">
+    <div class="modal-content" style="width: 540px;">
+      <span class="close-btn" id="closeScheduler">&times;</span>
+      <h2>Scheduler 📅</h2>
+      <p>
+        Background task scheduler — reminders, periodic data collection, and automated summaries.
+        Tasks are managed via MCP tools and execute automatically on schedule.
+      </p>
+
+      <!-- Summary stats -->
+      <div id="schedulerStats" class="scheduler-stats"></div>
+
+      <h3 style="font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; color: var(--text-primary);">
+        Tasks
+      </h3>
+      <div id="schedulerTasksList" class="scheduler-tasks-list">
+        <!-- Loaded via JS -->
+      </div>
+
+      <h3 style="font-size: 14px; margin-top: 20px; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; color: var(--text-primary);">
+        Recent Results
+      </h3>
+      <div id="schedulerResultsList" class="scheduler-results-list">
+        <!-- Loaded via JS -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=24"></script>
 </body>
 
 </html>
