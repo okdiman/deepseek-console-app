@@ -7,18 +7,36 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
+import asyncio
+import logging
+
 from .routes import router
-from .state import get_mcp_manager
+from .state import get_client, get_mcp_manager
+
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Start all enabled MCP servers on startup
     manager = get_mcp_manager()
     await manager.start_all()
-    
+
+    # Start the scheduler runner as a background asyncio task.
+    # Pass the web app's client + manager directly — no duplicate MCP subprocesses.
+    from mcp_servers.scheduler.scheduler_runner import run_scheduler_loop
+    scheduler_task = asyncio.create_task(
+        run_scheduler_loop(client=get_client(), manager=manager)
+    )
+    logger.info("Scheduler runner started as background task (shared MCP manager).")
+
     yield
-    
-    # Clean up subprocesses on shutdown
+
+    # Cancel scheduler gracefully, then clean up MCP subprocesses
+    scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
     await manager.stop_all()
 
 app = FastAPI(title="DeepSeek Web Chat", lifespan=lifespan)

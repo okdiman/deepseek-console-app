@@ -1,135 +1,81 @@
 """
-Background scheduler runner.
+Background scheduler runner — standalone process.
+
 Periodically checks the SQLite tasks table and executes due tasks.
-Runs as an asyncio background task inside the MCP server process.
+Can be run directly:  python mcp_servers/scheduler/scheduler_runner.py
+
+Architecture:
+  - Accepts a DeepSeekClient + MCPManager directly (no agent carrier needed)
+  - Creates a fresh BackgroundAgent + ChatSession per task to avoid context bleed
+  - Executes due tasks in parallel, bounded by _AI_CONCURRENCY semaphore
+  - Shares the same SQLite DB as scheduler_server.py (WAL mode)
+  - No HTTP dependency on FastAPI
 """
 
 import asyncio
 import json
 import logging
-import re
-import time
-import urllib.request
-from urllib.error import URLError
-from datetime import datetime, timedelta, timezone
-from typing import Optional
-
-import sys
 import os
-# Add the scheduler package directory to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sys
+from datetime import datetime, timezone
+
+# Project root on path when run as a script
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
 import scheduler_store as store
+from scheduler_utils import compute_next_run
 
 logger = logging.getLogger(__name__)
 
 CHECK_INTERVAL_SECONDS = 30
-
-
-# ── Schedule parsing ─────────────────────────────────────
-
-def compute_next_run(schedule: str, from_time: Optional[datetime] = None) -> Optional[str]:
-    """
-    Compute the next run time based on a simplified schedule string.
-    Supported formats:
-      - 'once'           → None (no next run)
-      - 'every_Nm'       → N minutes from now  (e.g. every_5m)
-      - 'every_Nh'       → N hours from now     (e.g. every_1h)
-      - 'daily_HH:MM'    → next occurrence of HH:MM UTC
-    """
-    now = from_time or datetime.now(timezone.utc)
-
-    if schedule == "once":
-        return None
-
-    # every_Nm
-    m = re.match(r"^every_(\d+)m$", schedule)
-    if m:
-        minutes = int(m.group(1))
-        return (now + timedelta(minutes=minutes)).isoformat()
-
-    # every_Nh
-    m = re.match(r"^every_(\d+)h$", schedule)
-    if m:
-        hours = int(m.group(1))
-        return (now + timedelta(hours=hours)).isoformat()
-
-    # daily_HH:MM
-    m = re.match(r"^daily_(\d{2}):(\d{2})$", schedule)
-    if m:
-        hour, minute = int(m.group(1)), int(m.group(2))
-        candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        if candidate <= now:
-            candidate += timedelta(days=1)
-        return candidate.isoformat()
-
-    logger.warning(f"Unknown schedule format: {schedule}")
-    return None
+_AI_CONCURRENCY = 3  # max concurrent LLM calls per tick
 
 
 # ── Task executors ───────────────────────────────────────
 
-def _execute_reminder(task: dict) -> str:
-    """Execute a reminder task — simply returns the reminder text."""
+async def _execute_reminder(task: dict) -> str:
     payload = json.loads(task["payload"]) if isinstance(task["payload"], str) else task["payload"]
-    text = payload.get("text", "(без текста)")
-    return f"🔔 Напоминание: {text}"
+    return f"🔔 Напоминание: {payload.get('text', '(без текста)')}"
 
 
-def _execute_periodic_collect(task: dict) -> str:
-    """Execute a periodic data collection — runs an AI agent prompt in the background."""
+async def _execute_periodic_collect(task: dict, client, manager) -> str:
+    """Execute periodic data collection via a fresh BackgroundAgent per task."""
+    from deepseek_chat.core.config import load_config
+    from deepseek_chat.core.session import ChatSession
+    from deepseek_chat.agents.background_agent import BackgroundAgent
+
     payload = json.loads(task["payload"]) if isinstance(task["payload"], str) else task["payload"]
     prompt = payload.get("prompt", "")
     if not prompt:
-        # Fallback for old tasks that used "url" instead of "prompt"
         url = payload.get("url", "")
-        if url:
-            prompt = f"Возьми данные с {url} и сделай краткую выжимку."
-        else:
-            return "❌ Промпт не указан в payload задачи"
+        prompt = f"Возьми данные с {url} и сделай краткую выжимку." if url else ""
+    if not prompt:
+        return "❌ Промпт не указан в payload задачи"
+
+    config = load_config()
+    fresh_session = ChatSession(max_messages=config.context_max_messages)
+    task_agent = BackgroundAgent(client, fresh_session, mcp_manager=manager)
 
     try:
-        # Instead of running the LLM in this process (which creates a second isolated
-        # instance of the entire web app and its MCP managers, causing infinite loops),
-        # we ask the main running FastAPI application to execute the agent.
-        req_data = json.dumps({
-            "prompt": prompt,
-            "max_length": payload.get("max_length", 4000)
-        }).encode("utf-8")
-        
-        req = urllib.request.Request(
-            "http://127.0.0.1:8000/scheduler/execute_agent",
-            data=req_data,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        
-        # Retry logic for when FastAPI hasn't fully started yet or is restarting
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                # We give it a generous timeout because Agent execution takes a while
-                with urllib.request.urlopen(req, timeout=300) as resp:
-                    data = resp.read().decode("utf-8")
-                    result = json.loads(data)
-                    
-                    if not result.get("ok"):
-                        error_msg = result.get("error", "Unknown error")
-                        return f"❌ Ошибка агента: {error_msg}"
-                        
-                    return f"🤖 Результат:\n{result.get('text', '')}"
-            except URLError as e:
-                if "Connection refused" in str(e) and attempt < max_retries - 1:
-                    logger.warning("Connection refused to backend (attempt %d/%d). Waiting 3s...", attempt + 1, max_retries)
-                    time.sleep(3)
-                    continue
-                raise
-            
+        chunks = []
+        async for chunk in task_agent.stream_reply(prompt, temperature=0.3):
+            chunks.append(chunk)
+        result_text = "".join(chunks).strip()
+        max_length = payload.get("max_length", 4000)
+        if len(result_text) > max_length:
+            result_text = result_text[:max_length] + f"\n... (обрезано, всего {len(result_text)} символов)"
+        return f"🤖 Результат:\n{result_text}"
     except Exception as e:
-        logger.error("Error executing periodic_collect agent task: %s", e, exc_info=True)
-        return f"❌ Ошибка вызова AI-агента (возможно, локальный сервер не запущен): {e}"
+        logger.error("periodic_collect failed for task %s: %s", task["id"], e, exc_info=True)
+        return f"❌ Ошибка выполнения агента: {e}"
 
-def _execute_periodic_summary(task: dict) -> str:
-    """Execute a summary task — aggregates recent results for a target task."""
+
+async def _execute_periodic_summary(task: dict) -> str:
     payload = json.loads(task["payload"]) if isinstance(task["payload"], str) else task["payload"]
     target_task_id = payload.get("target_task_id", "")
 
@@ -137,103 +83,140 @@ def _execute_periodic_summary(task: dict) -> str:
         results = store.get_results(target_task_id, limit=50)
         if not results:
             return "📋 Нет данных для сводки"
-        summary_lines = [f"📋 Сводка по задаче {target_task_id} ({len(results)} записей):"]
+        lines = [f"📋 Сводка по задаче {target_task_id} ({len(results)} записей):"]
         for r in results[:10]:
-            summary_lines.append(f"  • [{r['executed_at']}] {r['result'][:200]}")
+            lines.append(f"  • [{r['executed_at']}] {r['result'][:200]}")
         if len(results) > 10:
-            summary_lines.append(f"  ... и ещё {len(results) - 10} записей")
-        return "\n".join(summary_lines)
+            lines.append(f"  ... и ещё {len(results) - 10} записей")
+        return "\n".join(lines)
     else:
-        # General summary across all tasks
         agg = store.get_aggregated_summary()
         lines = [
-            f"📋 Общая сводка планировщика:",
+            "📋 Общая сводка планировщика:",
             f"  Всего задач: {agg['total_tasks']}",
             f"  Активных: {agg['active']} | На паузе: {agg['paused']} | Завершено: {agg['completed']}",
         ]
         if agg["recent_results"]:
-            lines.append(f"  Последние результаты:")
+            lines.append("  Последние результаты:")
             for r in agg["recent_results"][:5]:
                 lines.append(f"    • [{r['task_name']}] {r['result'][:150]}")
         return "\n".join(lines)
 
 
-_EXECUTORS = {
-    "reminder": _execute_reminder,
-    "periodic_collect": _execute_periodic_collect,
-    "periodic_summary": _execute_periodic_summary,
-}
+# ── Parallel tick ────────────────────────────────────────
 
+async def _run_single_task(
+    task: dict,
+    now: datetime,
+    now_iso: str,
+    db_path: str,
+    client,
+    manager,
+    semaphore: asyncio.Semaphore,
+) -> None:
+    """Execute one due task under the concurrency semaphore, then persist result + timing."""
+    task_id = task["id"]
+    task_type = task["type"]
 
-# ── Main runner loop ─────────────────────────────────────
-
-async def run_scheduler_loop(db_path: str = store.DB_PATH) -> None:
-    """
-    Main scheduler loop. Checks for due tasks every CHECK_INTERVAL_SECONDS
-    and executes them.
-    """
-    logger.info("Scheduler runner started (interval=%ds)", CHECK_INTERVAL_SECONDS)
-    store.init_db(db_path)
-    
-    # Wait for the main FastAPI server to fully start and bind to the port
-    # before we attempt to execute any AI tasks via HTTP requests.
-    await asyncio.sleep(5)
-
-    while True:
-        try:
-            await _tick(db_path)
-        except Exception as e:
-            logger.error("Scheduler tick error: %s", e, exc_info=True)
-
-        await asyncio.sleep(CHECK_INTERVAL_SECONDS)
-
-
-async def _tick(db_path: str = store.DB_PATH) -> None:
-    """Single scheduler tick: find and execute all due tasks."""
-    now = datetime.now(timezone.utc)
-    now_iso = now.isoformat()
-
-    tasks = store.get_tasks(status="active", db_path=db_path)
-
-    for task in tasks:
-        next_run = task.get("next_run_at")
-        if not next_run:
-            continue
-
-        # Is it time to run?
-        if next_run > now_iso:
-            continue
-
-        task_id = task["id"]
-        task_type = task["type"]
-
-        executor = _EXECUTORS.get(task_type)
-        if not executor:
-            logger.warning("No executor for task type: %s (task %s)", task_type, task_id)
-            continue
-
+    async with semaphore:
         logger.info("Executing task %s (%s): %s", task_id, task_type, task["name"])
-
-        # Run the executor (sync functions, run in thread to not block)
         try:
-            result = await asyncio.to_thread(executor, task)
+            if task_type == "periodic_collect":
+                result = await _execute_periodic_collect(task, client=client, manager=manager)
+            elif task_type == "reminder":
+                result = await _execute_reminder(task)
+            elif task_type == "periodic_summary":
+                result = await _execute_periodic_summary(task)
+            else:
+                logger.warning("No executor for task type '%s' (task %s)", task_type, task_id)
+                return
         except Exception as e:
             result = f"❌ Ошибка выполнения: {e}"
             logger.error("Task %s execution failed: %s", task_id, e)
 
-        # Save result
-        store.add_result(task_id, result, db_path=db_path)
+    store.add_result(task_id, result, db_path=db_path)
 
-        # Update task timing
-        schedule = task.get("schedule", "once")
-        if schedule == "once":
-            store.update_task(task_id, db_path=db_path, status="completed", last_run_at=now_iso)
-            logger.info("One-time task %s completed", task_id)
-        else:
-            next_run_new = compute_next_run(schedule, from_time=now)
-            store.update_task(
-                task_id, db_path=db_path,
-                last_run_at=now_iso,
-                next_run_at=next_run_new,
-            )
-            logger.info("Periodic task %s next run: %s", task_id, next_run_new)
+    schedule = task.get("schedule", "once")
+    if schedule == "once":
+        store.update_task(task_id, db_path=db_path, status="completed", last_run_at=now_iso)
+        logger.info("One-time task %s completed.", task_id)
+    else:
+        next_run_new = compute_next_run(schedule, from_time=now)
+        store.update_task(task_id, db_path=db_path, last_run_at=now_iso, next_run_at=next_run_new)
+        logger.info("Periodic task %s next run: %s", task_id, next_run_new)
+
+
+async def _tick(
+    db_path: str,
+    client,
+    manager,
+    semaphore: asyncio.Semaphore,
+) -> None:
+    """Single scheduler tick: collect all due tasks and execute them in parallel."""
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+
+    tasks = store.get_tasks(status="active", db_path=db_path)
+    due = [t for t in tasks if t.get("next_run_at") and t["next_run_at"] <= now_iso]
+
+    if not due:
+        return
+
+    logger.info("Tick: %d task(s) due.", len(due))
+    await asyncio.gather(*(
+        _run_single_task(task, now, now_iso, db_path, client, manager, semaphore)
+        for task in due
+    ))
+
+
+# ── Main runner loop ─────────────────────────────────────
+
+async def run_scheduler_loop(
+    db_path: str = store.DB_PATH,
+    client=None,
+    manager=None,
+) -> None:
+    """
+    Main scheduler loop.
+
+    client / manager — pre-built pair supplied by the web app lifespan.
+    When omitted (standalone mode), builds its own stack.
+    """
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    )
+    logger.info("Scheduler runner started (interval=%ds, concurrency=%d)", CHECK_INTERVAL_SECONDS, _AI_CONCURRENCY)
+
+    store.init_db(db_path)
+    semaphore = asyncio.Semaphore(_AI_CONCURRENCY)
+
+    _owns_manager = manager is None
+    if _owns_manager:
+        from deepseek_chat.core.agent_factory import build_client, build_manager
+        client = build_client()
+        manager = build_manager()
+        logger.info("Starting MCP servers for standalone runner...")
+        await manager.start_all()
+        logger.info("MCP servers ready.")
+
+    try:
+        while True:
+            try:
+                await _tick(db_path=db_path, client=client, manager=manager, semaphore=semaphore)
+            except Exception as e:
+                logger.error("Scheduler tick error: %s", e, exc_info=True)
+            await asyncio.sleep(CHECK_INTERVAL_SECONDS)
+    finally:
+        if _owns_manager:
+            logger.info("Shutting down MCP servers...")
+            await manager.stop_all()
+
+
+# ── Standalone entrypoint ────────────────────────────────
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(run_scheduler_loop())
+    except KeyboardInterrupt:
+        logger.info("Scheduler runner stopped.")

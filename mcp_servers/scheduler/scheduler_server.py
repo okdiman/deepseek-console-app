@@ -1,10 +1,11 @@
 """
 Scheduler MCP Server — provides tools for creating and managing
 scheduled tasks (reminders, periodic data collection, summaries).
-Runs a background scheduler loop alongside the MCP stdio transport.
+
+Pure MCP tool provider. The background execution loop lives in
+scheduler_runner.py (run it as a separate process).
 """
 
-import asyncio
 import json
 import logging
 import sys
@@ -17,7 +18,7 @@ from mcp.server.fastmcp import FastMCP
 # Add parent directory so we can import sibling modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import scheduler_store as store
-from scheduler_runner import run_scheduler_loop, compute_next_run
+from scheduler_utils import compute_next_run
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 logger = logging.getLogger("scheduler_server")
@@ -225,28 +226,5 @@ def delete_task(task_id: str) -> str:
 # ── Entry point ──────────────────────────────────────────
 
 if __name__ == "__main__":
-    # Initialize DB
     store.init_db()
-
-    # We need to run both the scheduler loop and the MCP server.
-    # FastMCP.run() uses its own event loop. We hook into it via atexit-style
-    # by starting the scheduler as a background task before running MCP.
-
-    import threading
-
-    def _run_scheduler_in_thread():
-        """Run the scheduler loop in a separate thread with its own event loop."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(run_scheduler_loop())
-        except Exception as e:
-            logger.error("Scheduler thread crashed: %s", e)
-
-    # Start scheduler in background thread
-    scheduler_thread = threading.Thread(target=_run_scheduler_in_thread, daemon=True)
-    scheduler_thread.start()
-    logger.info("Scheduler background thread started")
-
-    # Run MCP server (blocking)
     mcp.run()

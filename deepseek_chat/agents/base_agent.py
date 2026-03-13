@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import AsyncGenerator, List, Optional
 
@@ -19,16 +20,24 @@ class AgentResult:
 class BaseAgent:
     """
     Pipeline-based abstract base class for AI agents.
-    Executes the LLM request/response stream while delegating side-effects 
+    Executes the LLM request/response stream while delegating side-effects
     (memory, tokens, auto-titles) to injected `AgentHook` instances.
     """
-    
-    SYSTEM_PROMPT = ""  # Must be overridden by subclasses
 
-    def __init__(self, client: DeepSeekClient, session: ChatSession, hooks: Optional[List[AgentHook]] = None) -> None:
+    SYSTEM_PROMPT = ""  # Must be overridden by subclasses
+    _skip_after_stream_markers: bool = False
+
+    def __init__(
+        self,
+        client: DeepSeekClient,
+        session: ChatSession,
+        hooks: Optional[List[AgentHook]] = None,
+        mcp_manager=None,
+    ) -> None:
         self._client = client
         self._session = session
         self._hooks = hooks or []
+        self._mcp_manager = mcp_manager
 
     async def stream_reply(
         self, user_input: str, temperature: Optional[float] = None, top_p: Optional[float] = None
@@ -53,9 +62,8 @@ class BaseAgent:
             system_prompt = await hook.before_stream(self, user_input, system_prompt, history_messages)
 
         # Load available MCP tools to optionally supply to the client
-        from ..web.state import get_mcp_manager
-        mcp_manager = get_mcp_manager()
-        active_tools = mcp_manager.get_aggregated_tools()
+        mcp_manager = self._mcp_manager
+        active_tools = mcp_manager.get_aggregated_tools() if mcp_manager is not None else []
         tools_payload = active_tools if active_tools else None
 
         # Re-build final request combining hooked prompt and user input
@@ -78,7 +86,6 @@ class BaseAgent:
                 async for chunk in self._client.stream_message(
                     history_messages, temperature=temperature, top_p=top_p, tools=tools_payload
                 ):
-                    import json
                     try:
                         if chunk.startswith('{"__type__": "tool_call_start"'):
                             data = json.loads(chunk)

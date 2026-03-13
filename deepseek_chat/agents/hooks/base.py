@@ -4,7 +4,7 @@ AgentHook — abstract base class for the agent hook (middleware) interface.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, TYPE_CHECKING
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..base_agent import BaseAgent

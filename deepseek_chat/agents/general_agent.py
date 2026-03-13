@@ -16,7 +16,7 @@ class GeneralAgent(BaseAgent):
     """
     SYSTEM_PROMPT = SYSTEM_PROMPT
 
-    def __init__(self, client, session, task_machine=None):
+    def __init__(self, client, session, task_machine=None, mcp_manager=None):
         hooks = [
             MemoryInjectionHook(),
             UserProfileHook(),
@@ -24,5 +24,5 @@ class GeneralAgent(BaseAgent):
             TaskStateHook(),
             AutoTitleHook(),
         ]
-        super().__init__(client, session, hooks=hooks)
+        super().__init__(client, session, hooks=hooks, mcp_manager=mcp_manager)
         self._task_machine = task_machine

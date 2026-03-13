@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import os
 from typing import Dict
 
@@ -16,24 +17,7 @@ _config: ClientConfig = load_config()
 
 _web_context_path = os.getenv("DEEPSEEK_WEB_CONTEXT_PATH", "").strip()
 if _web_context_path:
-    _config = _config.__class__(  # type: ignore[misc]
-        provider=_config.provider,
-        api_key=_config.api_key,
-        api_url=_config.api_url,
-        models_url=_config.models_url,
-        model=_config.model,
-        max_tokens=_config.max_tokens,
-        read_timeout_seconds=_config.read_timeout_seconds,
-        price_per_1k_prompt_usd=_config.price_per_1k_prompt_usd,
-        price_per_1k_completion_usd=_config.price_per_1k_completion_usd,
-        persist_context=_config.persist_context,
-        context_path=os.path.expanduser(_web_context_path),
-        context_max_messages=_config.context_max_messages,
-        compression_enabled=_config.compression_enabled,
-        compression_threshold=_config.compression_threshold,
-        compression_keep=_config.compression_keep,
-        optional_params=_config.optional_params,
-    )
+    _config = dataclasses.replace(_config, context_path=os.path.expanduser(_web_context_path))
 
 _client = DeepSeekClient(_config)
 
@@ -56,8 +40,8 @@ def get_agent(agent_id: str, session_id: str = "default") -> AndroidAgent | Gene
     session = get_session(session_id)
     task_machine = get_task_machine(session_id)
     if agent_id == "android":
-        return AndroidAgent(_client, session, task_machine=task_machine)
-    return GeneralAgent(_client, session, task_machine=task_machine)
+        return AndroidAgent(_client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
+    return GeneralAgent(_client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
 
 _DEFAULT_AGENT_ID = "general"
 
