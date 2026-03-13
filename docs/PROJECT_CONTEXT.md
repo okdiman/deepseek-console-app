@@ -45,9 +45,13 @@ Streaming chat application with DeepSeek/Groq API, featuring a Web UI and consol
 - `deepseek_chat/core/task_state.py` — Task State Machine (finite automaton: idle→planning→execution→validation→done)
 - `deepseek_chat/core/mcp_manager.py` — Manages dynamic MCP processes and their tools
 - `deepseek_chat/core/mcp_registry.py` — Persists MCP server configs (`~/.deepseek_chat/mcp_servers.json`)
-- `mcp_servers/scheduler/scheduler_server.py` — Scheduler MCP server (reminders, periodic tasks, summaries)
+- `mcp_servers/scheduler/scheduler_server.py` — Scheduler MCP server (pure tool provider: create/list/pause/resume/delete tasks)
 - `mcp_servers/scheduler/scheduler_store.py` — SQLite persistence for scheduler (`~/.deepseek_chat/scheduler.db`)
-- `mcp_servers/scheduler/scheduler_runner.py` — Background asyncio scheduler loop
+- `mcp_servers/scheduler/scheduler_runner.py` — Standalone background runner (`python scheduler_runner.py`); own agent stack, no HTTP dependency
+- `mcp_servers/scheduler/scheduler_utils.py` — Shared `compute_next_run()` utility
+- `mcp_servers/pipeline_server.py` — Pipeline MCP server (Day 19): `search` → `summarize` → `save_to_file` + composite `run_pipeline`
+- `deepseek_chat/core/agent_factory.py` — `build_background_agent()`: builds agent+MCPManager without web imports
+- `deepseek_chat/agents/background_agent.py` — Minimal agent for background tasks (no stateful hooks)
 - `deepseek_chat/core/memory.py` — global explicit memory layers (working, long_term), persisted to `~/.deepseek_chat/memory.json`
 - `deepseek_chat/core/profile.py` — global UserProfile model (`~/.deepseek_chat/profile.json`)
 - `deepseek_chat/core/invariants.py` — global InvariantStore model (`~/.deepseek_chat/invariants.json`)
@@ -103,7 +107,7 @@ Edit defaults in `deepseek_chat/core/config.py`:
   - **Memory/Brain (🧠)**: Global Explicit Memory. Users can save working and long-term memory constraints shared across all sessions. Working memory auto-clears on `/clear`, long-term persists forever.
   - **Profile (👤)**: Global User Profile. Modifies agent responses with strict styling, formatting, and constraints across all sessions.
   - **Invariants (🛡️)**: Global hard constraints (architecture, stack, business rules) that the assistant must never violate. When a request conflicts with an invariant, the assistant refuses and explains which invariant would be broken.
-  - **MCP Servers (🔌)**: Dynamically connect to Model Context Protocol servers to give the agent new tools (e.g. Hacker News API, Postgres, Local scripts). Managed by `MCPManager` and persisted by `MCPRegistry`. Tools are automatically prefix-routed to prevent namespace collisions. Default servers: `demo_server.py` (Hacker News API), `scheduler_server.py` (background task scheduler).
+  - **MCP Servers (🔌)**: Dynamically connect to Model Context Protocol servers to give the agent new tools (e.g. Hacker News API, Postgres, Local scripts). Managed by `MCPManager` and persisted by `MCPRegistry`. Tools are automatically prefix-routed to prevent namespace collisions. Default servers: `demo_server.py` (Hacker News API), `scheduler_server.py` (background task scheduler), `pipeline_server.py` (Day 19: search→summarize→save_to_file pipeline).
   - **Scheduler (📅)**: Background task scheduler MCP server. Supports reminders, periodic data collection, and automated summaries. Tasks stored in SQLite (`~/.deepseek_chat/scheduler.db`), executed by a background runner (30s tick interval). Schedule formats: `once`, `every_Nm`, `every_Nh`, `daily_HH:MM`. UI panel shows task stats, list, and recent results with auto-refresh.
   - **Chat / Agent Modes**: A unified input field allows tossing between standard `Chat` mode and autonomous `Agent` mode where tasks are managed via a state machine.
 - **Automatic Context Optimization**: Combines sliding window (last N messages intact) + compression (summarize older messages) + auto-facts extraction (key facts auto-populate Working Memory during compression). No user configuration needed.
@@ -128,6 +132,33 @@ Edit defaults in `deepseek_chat/core/config.py`:
 - FastAPI serves static files and renders template via Jinja2
 
 
+
+## Architecture Rules (enforced)
+- `agents/` must never import from `web/`. `BaseAgent` receives `mcp_manager` only via constructor.
+- `web/state.py:get_agent()` always passes `mcp_manager=_mcp_manager` explicitly.
+- Config overrides use `dataclasses.replace(_config, ...)` — never manually reconstruct `ClientConfig`.
+- All imports at module top level — no inline imports inside functions or loops.
+- `BaseAgent._skip_after_stream_markers` is a declared class attribute (not duck-injected).
+
+## Tests
+Run: `python3 -m pytest tests/`
+
+| File | Covers |
+|---|---|
+| `test_config.py` | `core/config.py` — env parsing, providers |
+| `test_session.py` | `core/session.py` — history, trim, clone, persistence |
+| `test_memory.py` | `core/memory.py` — working/long-term, persistence |
+| `test_profile.py` | `core/profile.py` — fields, persistence |
+| `test_invariants.py` | `core/invariants.py` — add/remove, prompt injection |
+| `test_task_state.py` | `core/task_state.py` — FSM transitions, serialization |
+| `test_cost_tracker.py` | `web/cost_tracker.py` |
+| `test_hooks.py` | `agents/hooks/` — TaskState, Memory, Profile, Invariant |
+| `test_auto_title_hook.py` | `agents/hooks/auto_title.py` — trigger logic, LLM errors |
+| `test_strategies.py` | `agents/strategies.py` — history building, compression flags |
+| `test_streaming_markers.py` | `web/streaming.py` — `_collect_task_markers`, `_apply_task_markers` |
+| `test_mcp_registry.py` | `core/mcp_registry.py` — CRUD, persistence |
+| `test_scheduler_store.py` | `mcp_servers/scheduler/scheduler_store.py` |
+| `test_scheduler_utils.py` | `mcp_servers/scheduler/scheduler_utils.py` — `compute_next_run()` |
 
 ## Maintenance Rule
 After any code changes, verify `PROJECT_CONTEXT.md` and update it if needed.
