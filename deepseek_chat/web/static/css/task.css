@@ -221,31 +221,32 @@
 /* ── Mode Toggle ──────────────────────────────────────── */
 .mode-toggle {
     display: flex;
-    gap: 4px;
-    padding: 2px 0 0;
+    gap: 2px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 2px;
 }
 
 .mode-btn {
     font-size: 12px;
     font-weight: 500;
-    padding: 4px 14px;
+    padding: 3px 12px;
     border-radius: 6px;
-    border: 1px solid var(--border-subtle);
+    border: none;
     background: transparent;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.15s;
+    letter-spacing: 0.01em;
 }
 
 .mode-btn:hover {
     color: var(--text-primary);
-    border-color: var(--accent);
 }
 
 .mode-btn.active {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
+    background: rgba(255,255,255,0.12);
+    color: var(--text-primary);
 }
 
 /* ── Inline Task Actions (in chat messages) ───────────── */

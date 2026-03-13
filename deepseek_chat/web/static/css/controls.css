@@ -1,46 +1,45 @@
 /* ── Footer: input capsule, action buttons, stats ── */
 .footer {
-    padding: 12px max(24px, 5%) 6px max(24px, 5%);
+    padding: 12px max(24px, 5%) 8px max(24px, 5%);
     background: var(--bg-main);
     position: relative;
     z-index: 10;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 -1px 0 rgba(255,255,255,0.06);
 }
 
 #chatForm {
     display: flex;
     flex-direction: column;
-    gap: 4px;
 }
 
 .input-capsule {
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
     background: var(--bg-panel);
     border: 1px solid var(--border-subtle);
-    border-radius: 24px;
-    padding: 8px 12px 8px 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: border-color 0.2s;
+    border-radius: 16px;
+    padding: 12px 12px 8px 16px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .input-capsule:focus-within {
-    border-color: var(--text-secondary);
+    border-color: rgba(255,255,255,0.2);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
 }
 
 .input-capsule textarea {
-    flex: 1;
     background: transparent;
     border: none;
     color: var(--text-primary);
     font-size: 15px;
     resize: none;
     outline: none;
-    padding: 6px 0;
-    margin-bottom: 2px;
+    padding: 0;
     max-height: 200px;
-    line-height: 1.5;
+    line-height: 1.6;
     font-family: inherit;
+    width: 100%;
 }
 
 .input-capsule textarea:disabled {
@@ -48,29 +47,36 @@
     cursor: not-allowed;
 }
 
+.capsule-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+}
+
 .capsule-actions {
     display: flex;
     align-items: center;
-    padding-bottom: 2px;
-    margin-left: 8px;
+    gap: 6px;
 }
 
 .action-btn {
     background: var(--text-primary);
     color: var(--bg-main);
     border: none;
-    border-radius: 50%;
+    border-radius: 8px;
     width: 32px;
     height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
+    transition: opacity 0.15s, transform 0.1s;
+    flex-shrink: 0;
 }
 
 .action-btn:hover {
-    opacity: 0.9;
+    opacity: 0.85;
     transform: scale(1.05);
 }
 
