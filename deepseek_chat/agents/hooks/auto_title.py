@@ -20,33 +20,42 @@ class AutoTitleHook(AgentHook):
         return system_prompt
 
     async def after_stream(self, agent: BaseAgent, full_response: str) -> None:
+        if agent._session.summary:
+            return
         messages = agent._session.messages()
-        total_msgs = len(messages)
-        
-        # Fire titling logic after 2 or 4 messages have been exchanged
-        if total_msgs in (2, 4) and not agent._session.summary:
+        # Count only user turns to avoid being thrown off by tool_calls/tool messages
+        user_turns = sum(1 for m in messages if m.get("role") == "user")
+        if user_turns in (1, 2):
             await self._generate_title(agent, messages)
 
     async def _generate_title(self, agent: BaseAgent, messages: List[Dict[str, str]]) -> None:
         if not messages:
             return
-            
+
+        # Only pass plain user/assistant text messages to avoid tool_calls payload
+        plain = [
+            m for m in messages
+            if m.get("role") in ("user", "assistant")
+            and isinstance(m.get("content"), str)
+            and m["content"].strip()
+        ]
+
         title_prompt = (
             "Напиши ОЧЕНЬ КРАТКИЙ заголовок (3-5 слов, без кавычек и точек в конце) "
             "для этого диалога, отражающий его основную суть."
         )
-        
+
         request = [
             {"role": "system", "content": "You are a helpful assistant that generates extremely concise titles."},
         ]
-        request.extend(messages[:4])
+        request.extend(plain[:4])
         request.append({"role": "user", "content": title_prompt})
-        
+
         response_parts = []
         try:
             async for chunk in agent._client.stream_message(request, temperature=0.3):
                 response_parts.append(chunk)
-                
+
             new_title = "".join(response_parts).strip().strip('"').strip("'")
             if new_title:
                 agent._session.summary = new_title

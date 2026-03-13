@@ -82,16 +82,20 @@ class ChatSession:
 
         messages = payload.get("messages", [])
         if isinstance(messages, list):
-            valid_messages: List[Dict[str, str]] = []
+            valid_messages: List[Dict] = []
             for item in messages:
-                if (
-                    isinstance(item, dict)
-                    and item.get("role") in {"user", "assistant"}
-                    and isinstance(item.get("content"), str)
-                ):
-                    valid_messages.append(
-                        {"role": item["role"], "content": item["content"]}
-                    )
+                if not isinstance(item, dict):
+                    continue
+                role = item.get("role")
+                if role == "user" and isinstance(item.get("content"), str):
+                    valid_messages.append({"role": "user", "content": item["content"]})
+                elif role == "assistant":
+                    if item.get("tool_calls"):
+                        valid_messages.append(item)
+                    elif isinstance(item.get("content"), str):
+                        valid_messages.append({"role": "assistant", "content": item["content"]})
+                elif role == "tool":
+                    valid_messages.append(item)
             self._messages = valid_messages
             self._trim()
 
@@ -118,8 +122,18 @@ class ChatSession:
         os.replace(tmp_path, path)
 
     def _trim(self) -> None:
-        if len(self._messages) > self._max_messages:
-            self._messages = self._messages[-self._max_messages :]
+        if len(self._messages) <= self._max_messages:
+            return
+        self._messages = self._messages[-self._max_messages:]
+        # Drop leading tool/tool_calls messages that lost their pair
+        while self._messages:
+            role = self._messages[0].get("role")
+            if role in ("tool",):
+                self._messages.pop(0)
+            elif role == "assistant" and self._messages[0].get("tool_calls"):
+                self._messages.pop(0)
+            else:
+                break
 
     def apply_compression(self, new_summary: str, keep_count: int) -> None:
         """Applies a new summary and trims all but the newest `keep_count` messages."""
