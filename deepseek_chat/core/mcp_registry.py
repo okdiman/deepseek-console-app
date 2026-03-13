@@ -43,6 +43,14 @@ class MCPRegistry:
                         args=["mcp_servers/scheduler/scheduler_server.py"],
                         env={},
                         enabled=True
+                    ),
+                    MCPServerConfig(
+                        id="pipeline",
+                        name="Pipeline Server",
+                        command="python",
+                        args=["mcp_servers/pipeline_server.py"],
+                        env={},
+                        enabled=True
                     )
                 ]
             )
