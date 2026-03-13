@@ -12,15 +12,19 @@ from .state import (
     get_all_sessions,
     get_config,
     get_default_agent_id,
+    get_mcp_manager,
+    get_mcp_registry,
     get_session,
     get_task_machine,
 )
 from .cost_tracker import reset_session_cost_usd
-from ..core.profile import UserProfile
-from ..core.memory import MemoryStore
 from ..core.invariants import InvariantStore
+from ..core.memory import MemoryStore
+from ..core.mcp_registry import MCPServerConfig
+from ..core.profile import UserProfile
 from .streaming import sse_response, stream_events
 from .views import render_index
+from mcp_servers.scheduler import scheduler_store as _sched_store
 
 router = APIRouter()
 
@@ -171,6 +175,19 @@ def _task_response(tm) -> dict:
     data["allowed_transitions"] = tm.get_allowed_transitions()
     return data
 
+
+def _task_transition(tm, action) -> JSONResponse:
+    """Execute a task state transition and return a unified response."""
+    try:
+        action()
+        return JSONResponse({"ok": True, "state": _task_response(tm)})
+    except Exception as exc:
+        return JSONResponse(
+            {"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()},
+            status_code=400,
+        )
+
+
 @router.get("/task")
 async def get_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
@@ -179,47 +196,27 @@ async def get_task(session_id: str = Query("default")) -> JSONResponse:
 @router.post("/task/start")
 async def start_task(payload: TaskGoal, session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
-    try:
-        tm.start_task(payload.goal)
-        return JSONResponse({"ok": True, "state": _task_response(tm)})
-    except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
+    return _task_transition(tm, lambda: tm.start_task(payload.goal))
 
 @router.post("/task/approve")
 async def approve_task_plan(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
-    try:
-        tm.approve_plan()
-        return JSONResponse({"ok": True, "state": _task_response(tm)})
-    except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
+    return _task_transition(tm, tm.approve_plan)
 
 @router.post("/task/pause")
 async def pause_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
-    try:
-        tm.pause()
-        return JSONResponse({"ok": True, "state": _task_response(tm)})
-    except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
+    return _task_transition(tm, tm.pause)
 
 @router.post("/task/resume")
 async def resume_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
-    try:
-        tm.resume()
-        return JSONResponse({"ok": True, "state": _task_response(tm)})
-    except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
+    return _task_transition(tm, tm.resume)
 
 @router.post("/task/complete")
 async def complete_task(session_id: str = Query("default")) -> JSONResponse:
     tm = get_task_machine(session_id)
-    try:
-        tm.complete()
-        return JSONResponse({"ok": True, "state": _task_response(tm)})
-    except Exception as exc:
-        return JSONResponse({"ok": False, "error": str(exc), "allowed_transitions": tm.get_allowed_transitions()}, status_code=400)
+    return _task_transition(tm, tm.complete)
 
 @router.post("/task/reset")
 async def reset_task(session_id: str = Query("default")) -> JSONResponse:
@@ -228,9 +225,6 @@ async def reset_task(session_id: str = Query("default")) -> JSONResponse:
     return JSONResponse({"ok": True, "state": _task_response(tm)})
 
 # ── MCP Server endpoints ─────────────────────────────────
-
-from ..core.mcp_registry import MCPServerConfig
-from .state import get_mcp_registry, get_mcp_manager
 
 @router.get("/mcp")
 async def list_mcp_servers() -> JSONResponse:
@@ -296,17 +290,13 @@ async def toggle_mcp_server(server_id: str, payload: dict) -> JSONResponse:
 
 # ── Scheduler endpoints ──────────────────────────────────
 
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'mcp_servers'))
-
 @router.get("/scheduler/status")
 async def scheduler_status() -> JSONResponse:
     """Scheduler dashboard data — reads SQLite directly."""
     try:
-        from scheduler import scheduler_store as store
-        store.init_db()
-        tasks = store.get_tasks()
-        summary = store.get_aggregated_summary()
+        _sched_store.init_db()
+        tasks = _sched_store.get_tasks()
+        summary = _sched_store.get_aggregated_summary()
         return JSONResponse({"tasks": tasks, "summary": summary})
     except Exception as e:
         return JSONResponse({"tasks": [], "summary": {}, "error": str(e)})
@@ -314,8 +304,7 @@ async def scheduler_status() -> JSONResponse:
 @router.post("/scheduler/task/{task_id}/pause")
 async def scheduler_pause_task(task_id: str) -> JSONResponse:
     try:
-        from scheduler import scheduler_store as store
-        store.update_task(task_id, status="paused")
+        _sched_store.update_task(task_id, status="paused")
         return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
@@ -323,8 +312,7 @@ async def scheduler_pause_task(task_id: str) -> JSONResponse:
 @router.post("/scheduler/task/{task_id}/resume")
 async def scheduler_resume_task(task_id: str) -> JSONResponse:
     try:
-        from scheduler import scheduler_store as store
-        store.update_task(task_id, status="active")
+        _sched_store.update_task(task_id, status="active")
         return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
@@ -332,8 +320,7 @@ async def scheduler_resume_task(task_id: str) -> JSONResponse:
 @router.delete("/scheduler/task/{task_id}")
 async def scheduler_delete_task(task_id: str) -> JSONResponse:
     try:
-        from scheduler import scheduler_store as store
-        store.delete_task(task_id)
+        _sched_store.delete_task(task_id)
         return JSONResponse({"ok": True})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
@@ -342,49 +329,48 @@ async def scheduler_delete_task(task_id: str) -> JSONResponse:
 async def scheduler_notifications(since: str = Query("")) -> JSONResponse:
     """Return new scheduler results since the given ISO timestamp."""
     try:
-        from scheduler import scheduler_store as store
-        store.init_db()
+        _sched_store.init_db()
         if not since:
             return JSONResponse({"results": []})
-        results = store.get_results_since(since)
+        results = _sched_store.get_results_since(since)
         return JSONResponse({"results": results})
     except Exception as e:
         return JSONResponse({"results": [], "error": str(e)})
+
 
 class AgentTaskRequest(BaseModel):
     prompt: str
     max_length: int = 4000
 
+
 @router.post("/scheduler/execute_agent")
 async def execute_agent_task(payload: AgentTaskRequest) -> JSONResponse:
-    """Execute an autonomous background agent task and return the text."""
+    """Execute an autonomous agent task and return the text result."""
     try:
-        from .state import get_agent, delete_session
         import datetime
-        
-        # Temp session specifically for this background task run
+        from .state import delete_session, get_agent
+
         temp_session_id = f"bg_task_{datetime.datetime.now().timestamp()}"
         agent = get_agent("general", session_id=temp_session_id)
-        
+
         autonomous_prompt = (
-            "You are running as an autonomous background scheduled task. "
-            "You MUST fully complete the user's request without asking for permission "
-            "or waiting for follow-ups. If you use a tool that returns IDs or partial data, "
-            "you MUST immediately use follow-up tools (like fetching the actual item details) "
-            "to provide a complete, human-readable final response.\n\n"
+            "You are running as an autonomous background task. "
+            "Fully complete the user's request without asking for permission. "
+            "If a tool returns IDs or partial data, immediately use follow-up tools "
+            "to produce a complete, human-readable response.\n\n"
             f"User Request: {payload.prompt}"
         )
-        
+
         response_chunks = []
         async for chunk in agent.stream_reply(autonomous_prompt, temperature=0.3):
             response_chunks.append(chunk)
 
         delete_session(temp_session_id)
-        
+
         result_text = "".join(response_chunks)
         if len(result_text) > payload.max_length:
             result_text = result_text[:payload.max_length] + f"\n... (обрезано, всего {len(result_text)} символов)"
-            
+
         return JSONResponse({"ok": True, "text": result_text})
     except Exception as e:
         import traceback
