@@ -124,11 +124,17 @@ class BaseAgent:
                                 except Exception as e:
                                     result = f"Error executing tool: {e}"
                                     yield f"❌ *Tool failed: {e}*\n\n"
-                                    
+
+                                _MAX_TOOL_RESULT_CHARS = 12_000
+                                result_str = str(result)
+                                if len(result_str) > _MAX_TOOL_RESULT_CHARS:
+                                    omitted = len(result_str) - _MAX_TOOL_RESULT_CHARS
+                                    result_str = result_str[:_MAX_TOOL_RESULT_CHARS] + f"\n\n... [truncated: {omitted} chars omitted]"
+
                                 self._session.add_tool_result(
                                     tool_call_id=tc["id"],
                                     name=fn_name,
-                                    content=str(result)
+                                    content=result_str
                                 )
                                 
                             tool_call_executed = True

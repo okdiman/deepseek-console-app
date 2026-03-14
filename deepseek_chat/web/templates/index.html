@@ -272,17 +272,26 @@
           <div class="mcp-form-row">
             <div class="mcp-input-group">
               <label for="mcpId">Unique ID</label>
-              <input type="text" id="mcpId" placeholder="e.g. github_server" class="form-input" required>
+              <input type="text" id="mcpId" placeholder="e.g. deepwiki" class="form-input" required>
             </div>
             <div class="mcp-input-group">
               <label for="mcpName">Display Name</label>
-              <input type="text" id="mcpName" placeholder="e.g. GitHub" class="form-input" required>
+              <input type="text" id="mcpName" placeholder="e.g. DeepWiki" class="form-input" required>
+            </div>
+            <div class="mcp-input-group">
+              <label for="mcpTransport">Transport</label>
+              <select id="mcpTransport" class="form-input" style="cursor:pointer;">
+                <option value="stdio">stdio (local)</option>
+                <option value="sse">SSE (remote)</option>
+                <option value="streamable_http">HTTP (remote)</option>
+              </select>
             </div>
           </div>
-          <div class="mcp-form-row" style="grid-template-columns: 1fr 2fr 2fr;">
+          <!-- stdio fields -->
+          <div id="mcpStdioFields" class="mcp-form-row" style="grid-template-columns: 1fr 2fr 2fr;">
             <div class="mcp-input-group">
               <label for="mcpCommand">Command</label>
-              <input type="text" id="mcpCommand" placeholder="e.g. npx" class="form-input" required>
+              <input type="text" id="mcpCommand" placeholder="e.g. npx" class="form-input">
             </div>
             <div class="mcp-input-group">
               <label for="mcpArgs">Arguments <span
@@ -294,6 +303,18 @@
               <label for="mcpEnv">Environment <span
                   style="opacity: 0.5; font-weight: normal; font-size: 10px;">(KEY=val, KEY2=val2)</span></label>
               <input type="text" id="mcpEnv" placeholder="e.g. GITHUB_TOKEN=abc" class="form-input">
+            </div>
+          </div>
+          <!-- http/sse fields -->
+          <div id="mcpHttpFields" class="mcp-form-row" style="display:none; grid-template-columns: 2fr 1fr;">
+            <div class="mcp-input-group">
+              <label for="mcpUrl">Server URL</label>
+              <input type="text" id="mcpUrl" placeholder="e.g. https://mcp.deepwiki.com/mcp" class="form-input">
+            </div>
+            <div class="mcp-input-group">
+              <label for="mcpHeaders">Headers <span
+                  style="opacity: 0.5; font-weight: normal; font-size: 10px;">(KEY=val, KEY2=val2)</span></label>
+              <input type="text" id="mcpHeaders" placeholder="e.g. Authorization=Bearer token" class="form-input">
             </div>
           </div>
           <div class="mcp-form-footer">

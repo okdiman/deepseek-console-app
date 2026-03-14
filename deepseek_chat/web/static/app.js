@@ -456,7 +456,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const cmdSpan = document.createElement("div");
       cmdSpan.className = "mcp-server-cmd";
-      cmdSpan.textContent = `$ ${server.command} ${server.args.join(" ")}`;
+      const isHttp = server.transport === "sse" || server.transport === "streamable_http";
+      cmdSpan.textContent = isHttp
+        ? `[${server.transport}] ${server.url || ""}`
+        : `$ ${server.command || ""} ${(server.args || []).join(" ")}`;
       container.appendChild(cmdSpan);
 
       // Tools List
@@ -490,39 +493,64 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Transport selector: toggle stdio vs http fields
+  const mcpTransportSelect = document.getElementById("mcpTransport");
+  if (mcpTransportSelect) {
+    mcpTransportSelect.addEventListener("change", () => {
+      const isHttp = mcpTransportSelect.value !== "stdio";
+      document.getElementById("mcpStdioFields").style.display = isHttp ? "none" : "";
+      document.getElementById("mcpHttpFields").style.display = isHttp ? "" : "none";
+    });
+  }
+
   if (addMcpForm) {
     addMcpForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const idInput = document.getElementById("mcpId").value.trim();
       const nameInput = document.getElementById("mcpName").value.trim();
-      const cmdInput = document.getElementById("mcpCommand").value.trim();
-      const argsInput = document.getElementById("mcpArgs").value.trim();
-      const envInput = (document.getElementById("mcpEnv")?.value || "").trim();
+      const transport = (document.getElementById("mcpTransport")?.value || "stdio");
+      const isHttp = transport !== "stdio";
 
-      if (!idInput || !nameInput || !cmdInput) return;
+      if (!idInput || !nameInput) return;
 
-      // Basic argument splitting (doesn't handle quoted strings perfectly, but good enough for simple args)
-      const argsArray = argsInput ? argsInput.split(/\s+/) : [];
-
-      const envObj = {};
-      if (envInput) {
-        envInput.split(',').forEach(pair => {
+      function parseKvPairs(str) {
+        const obj = {};
+        (str || "").split(',').forEach(pair => {
           const [k, ...v] = pair.split('=');
-          if (k && k.trim()) {
-            envObj[k.trim()] = v.join('=').trim();
-          }
+          if (k && k.trim()) obj[k.trim()] = v.join('=').trim();
         });
+        return obj;
       }
 
-      const payload = {
-        id: idInput.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
-        name: nameInput,
-        command: cmdInput,
-        args: argsArray,
-        env: envObj,
-        enabled: true
-      };
+      let payload;
+      if (isHttp) {
+        const urlInput = document.getElementById("mcpUrl").value.trim();
+        const headersInput = (document.getElementById("mcpHeaders")?.value || "").trim();
+        if (!urlInput) return;
+        payload = {
+          id: idInput.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+          name: nameInput,
+          transport,
+          url: urlInput,
+          headers: parseKvPairs(headersInput),
+          enabled: true
+        };
+      } else {
+        const cmdInput = document.getElementById("mcpCommand").value.trim();
+        const argsInput = document.getElementById("mcpArgs").value.trim();
+        const envInput = (document.getElementById("mcpEnv")?.value || "").trim();
+        if (!cmdInput) return;
+        payload = {
+          id: idInput.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+          name: nameInput,
+          transport: "stdio",
+          command: cmdInput,
+          args: argsInput ? argsInput.split(/\s+/) : [],
+          env: parseKvPairs(envInput),
+          enabled: true
+        };
+      }
 
       try {
         const res = await fetch("/mcp", {
@@ -532,6 +560,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         if (res.ok) {
           addMcpForm.reset();
+          if (mcpTransportSelect) {
+            mcpTransportSelect.value = "stdio";
+            document.getElementById("mcpStdioFields").style.display = "";
+            document.getElementById("mcpHttpFields").style.display = "none";
+          }
           loadMcpServers();
         } else {
           alert("Failed to add MCP server");

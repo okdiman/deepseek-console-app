@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from deepseek_chat.core.paths import DATA_DIR
@@ -9,9 +9,14 @@ from deepseek_chat.core.paths import DATA_DIR
 class MCPServerConfig(BaseModel):
     id: str
     name: str
-    command: str
+    # stdio transport fields
+    command: Optional[str] = None
     args: List[str] = Field(default_factory=list)
     env: Dict[str, str] = Field(default_factory=dict)
+    # http/sse transport fields
+    transport: str = "stdio"   # "stdio" | "sse" | "streamable_http"
+    url: Optional[str] = None
+    headers: Dict[str, str] = Field(default_factory=dict)
     enabled: bool = True
 
 

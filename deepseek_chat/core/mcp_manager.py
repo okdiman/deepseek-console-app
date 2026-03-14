@@ -1,9 +1,13 @@
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from typing import Dict, List, Optional, Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.client.sse import sse_client
+from mcp.client.streamable_http import streamable_http_client
+import httpx
 
 from .mcp_registry import MCPRegistry, MCPServerConfig
 
@@ -36,31 +40,25 @@ class MCPManager:
 
     async def _run_server_task(self, config: MCPServerConfig, shutdown_event: asyncio.Event) -> None:
         """
-        Background task that holds the MCP stdio connection open.
+        Background task that holds the MCP connection open.
+        Supports stdio, sse, and streamable_http transports.
         Auto-restarts on crash up to _MAX_RESTARTS consecutive times.
         Stops cleanly when shutdown_event is set.
         """
-        env = config.env if config.env else None
-        server_params = StdioServerParameters(
-            command=config.command,
-            args=config.args,
-            env=env,
-        )
         consecutive_crashes = 0
 
         while not shutdown_event.is_set():
             try:
-                async with stdio_client(server_params) as (read, write):
+                async with self._open_transport(config) as (read, write):
                     async with ClientSession(read, write) as session:
                         await session.initialize()
                         self._sessions[config.id] = session
-                        consecutive_crashes = 0  # reset on successful start
-                        logger.info("MCP server '%s' ready.", config.id)
+                        consecutive_crashes = 0
+                        logger.info("MCP server '%s' ready (transport=%s).", config.id, config.transport)
                         await self._refresh_tools()
 
-                        # Hold connection open until shutdown is requested
                         await shutdown_event.wait()
-                        break  # clean shutdown
+                        break
 
             except asyncio.CancelledError:
                 break
@@ -83,13 +81,40 @@ class MCPManager:
                 logger.info("Restarting MCP server '%s' in %.0fs...", config.id, _RESTART_DELAY)
                 try:
                     await asyncio.wait_for(shutdown_event.wait(), timeout=_RESTART_DELAY)
-                    break  # shutdown requested during wait
+                    break
                 except asyncio.TimeoutError:
-                    pass  # normal — just retry
+                    pass
 
         self._sessions.pop(config.id, None)
         await self._refresh_tools()
         logger.info("MCP server task for '%s' exited.", config.id)
+
+    @asynccontextmanager
+    async def _open_transport(self, config: MCPServerConfig):
+        """Async context manager yielding (read, write) for the configured transport."""
+        if config.transport == "sse":
+            if not config.url:
+                raise ValueError(f"MCP server '{config.id}': transport=sse requires a url")
+            async with sse_client(config.url, headers=config.headers or None) as (read, write):
+                yield read, write
+        elif config.transport == "streamable_http":
+            if not config.url:
+                raise ValueError(f"MCP server '{config.id}': transport=streamable_http requires a url")
+            http_client = httpx.AsyncClient(headers=config.headers or {}, timeout=30)
+            async with http_client:
+                async with streamable_http_client(config.url, http_client=http_client) as (read, write, _):
+                    yield read, write
+        else:
+            # stdio (default)
+            if not config.command:
+                raise ValueError(f"MCP server '{config.id}': transport=stdio requires a command")
+            server_params = StdioServerParameters(
+                command=config.command,
+                args=config.args,
+                env=config.env or None,
+            )
+            async with stdio_client(server_params) as (read, write):
+                yield read, write
 
     async def start_server(self, config: MCPServerConfig) -> bool:
         """Start a single MCP server and wait until it is ready."""
@@ -97,7 +122,8 @@ class MCPManager:
             logger.warning("Server '%s' is already running.", config.id)
             return True
 
-        logger.info("Starting MCP server: %s (%s %s)", config.name, config.command, " ".join(config.args))
+        endpoint = config.url if config.transport in ("sse", "streamable_http") else f"{config.command} {' '.join(config.args)}"
+        logger.info("Starting MCP server: %s [%s] %s", config.name, config.transport, endpoint)
 
         shutdown_event = asyncio.Event()
         task = asyncio.create_task(self._run_server_task(config, shutdown_event))
