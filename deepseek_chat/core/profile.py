@@ -3,6 +3,8 @@ import os
 from typing import Optional
 from pydantic import BaseModel
 
+from deepseek_chat.core.paths import DATA_DIR
+
 
 class UserProfile(BaseModel):
     """
@@ -25,7 +27,7 @@ class UserProfile(BaseModel):
     @classmethod
     def get_storage_path(cls) -> str:
         """Returns the default storage path for the global profile."""
-        profile_path = os.getenv("DEEPSEEK_PROFILE_PATH", "~/.deepseek_chat/profile.json")
+        profile_path = os.getenv("DEEPSEEK_PROFILE_PATH", str(DATA_DIR / "profile.json"))
         return os.path.expanduser(profile_path)
 
     @classmethod

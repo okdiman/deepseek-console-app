@@ -3,6 +3,8 @@ import os
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
+from deepseek_chat.core.paths import DATA_DIR
+
 
 class MCPServerConfig(BaseModel):
     id: str
@@ -20,7 +22,7 @@ class MCPRegistryStore(BaseModel):
 class MCPRegistry:
     """Manages persistence of MCP server configurations"""
     
-    DEFAULT_PATH = os.path.expanduser("~/.deepseek_chat/mcp_servers.json")
+    DEFAULT_PATH = str(DATA_DIR / "mcp_servers.json")
     
     @classmethod
     def load(cls, path: str = DEFAULT_PATH) -> "MCPRegistry":

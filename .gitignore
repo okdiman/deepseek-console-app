@@ -7,3 +7,6 @@ venv/
 
 # Temporary files
 main_*.py
+
+# Local data (chat history, memory, scheduler DB, etc.)
+data/

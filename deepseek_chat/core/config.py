@@ -5,6 +5,7 @@ import sys
 from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
+from deepseek_chat.core.paths import DATA_DIR
 
 
 @dataclass(frozen=True)
@@ -93,7 +94,7 @@ def load_config() -> ClientConfig:
     persist_context = persist_context_raw not in {"0", "false", "no", "off"}
     context_path = os.getenv(
         "DEEPSEEK_CONTEXT_PATH",
-        os.path.expanduser("~/.deepseek_chat/context.json"),
+        str(DATA_DIR / "context.json"),
     )
     context_max_messages = int(os.getenv("DEEPSEEK_CONTEXT_MAX_MESSAGES", "40"))
 

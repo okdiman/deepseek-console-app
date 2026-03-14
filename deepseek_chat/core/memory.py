@@ -2,6 +2,8 @@ import json
 import os
 from typing import Dict, List, Any
 
+from deepseek_chat.core.paths import DATA_DIR
+
 class MemoryStore:
     """
     Standalone memory component that encapsulates the explicit memory layers 
@@ -78,7 +80,7 @@ class MemoryStore:
     @classmethod
     def get_storage_path(cls) -> str:
         """Returns the default storage path for the global memory."""
-        memory_path = os.getenv("DEEPSEEK_MEMORY_PATH", "~/.deepseek_chat/memory.json")
+        memory_path = os.getenv("DEEPSEEK_MEMORY_PATH", str(DATA_DIR / "memory.json"))
         return os.path.expanduser(memory_path)
 
     @classmethod

@@ -20,7 +20,7 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("Pipeline Server")
 
-RESULTS_DIR = Path.home() / ".deepseek_chat" / "pipeline_results"
+RESULTS_DIR = Path(os.getenv("DEEPSEEK_DATA_DIR", "data")) / "pipeline_results"
 
 
 def _ensure_results_dir() -> None:

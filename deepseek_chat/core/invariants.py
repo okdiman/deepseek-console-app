@@ -6,6 +6,8 @@ import json
 import os
 from typing import Dict, List, Any
 
+from deepseek_chat.core.paths import DATA_DIR
+
 
 class InvariantStore:
     """
@@ -69,7 +71,7 @@ class InvariantStore:
     @classmethod
     def get_storage_path(cls) -> str:
         """Returns the default storage path for invariants."""
-        path = os.getenv("DEEPSEEK_INVARIANTS_PATH", "~/.deepseek_chat/invariants.json")
+        path = os.getenv("DEEPSEEK_INVARIANTS_PATH", str(DATA_DIR / "invariants.json"))
         return os.path.expanduser(path)
 
     @classmethod

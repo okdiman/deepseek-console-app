@@ -8,10 +8,10 @@ import sqlite3
 import os
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
-DB_PATH = os.path.expanduser("~/.deepseek_chat/scheduler.db")
+DB_PATH = str(Path(os.getenv("DEEPSEEK_DATA_DIR", "data")) / "scheduler.db")
 
 
 def _ensure_dir() -> None:
