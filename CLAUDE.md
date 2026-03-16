@@ -29,6 +29,15 @@ python3 -m pytest tests/test_task_state.py::TestTaskStateMachine::test_transitio
 
 # Multi-model comparison utility
 python3 -m deepseek_chat.core.comparing.model_compare --prompt "..."
+
+# RAG — download corpus documents (run once)
+python3 scripts/download_corpus.py
+
+# RAG — index + search + compare (requires Ollama running)
+python3 experiments/rag_compare/cli.py index
+python3 experiments/rag_compare/cli.py search --query "how does attention work?"
+python3 experiments/rag_compare/cli.py compare
+python3 experiments/rag_compare/cli.py stats
 ```
 
 ## Architecture
@@ -102,6 +111,12 @@ All state lives in `~/.deepseek_chat/`:
 | `mcp_servers.json` | MCP server configs | No |
 | `scheduler.db` | SQLite: scheduled tasks + history | No |
 
+All RAG experiment state lives in `experiments/rag_compare/data/`:
+| File | Purpose |
+|------|---------|
+| `doc_index.db` | SQLite: chunk text + embeddings (both strategies) |
+| `comparison_report.json` | Strategy comparison results |
+
 Memory/profile/invariants are **reloaded from disk on every request** to pick up real-time edits.
 
 Persistence file formats:
@@ -125,6 +140,20 @@ Persistence file formats:
 - `streaming.py` — SSE generator with task marker parsing; `_collect_task_markers` and `_apply_task_markers` are pure functions (testable without HTTP context)
 - `state.py` — singletons for config, client, sessions, task machines, MCP; `get_agent()` factory
 - Frontend: vanilla JS (`static/app.js`, ~48KB) + CSS; no build step needed
+
+### RAG — Document Indexing (`core/rag/`)
+
+`deepseek_chat/core/rag/` is a self-contained domain package (no web/agent imports):
+- `config.py` — `RagConfig` dataclass + `load_rag_config()` (env: `RAG_*`)
+- `corpus.py` — `CORPUS_FILES` list (17 files: 6 external articles + 2 project md + 9 py)
+- `chunkers.py` — `FixedSizeChunker` (tiktoken sliding window) + `StructureChunker` (markdown `##` / Python AST)
+- `embedder.py` — `OllamaEmbeddingClient` calling `POST /api/embed` on local Ollama
+- `store.py` — SQLite store with cosine similarity search
+- `pipeline.py` — `run_pipeline(strategy)` orchestrator
+
+Experiment code (can be deleted): `experiments/rag_compare/` — `compare.py` + `cli.py`.
+Corpus documents: `docs/corpus/` (6 markdown files, ~150 pages, downloaded via `scripts/download_corpus.py`).
+`RagHook` (`agents/hooks/rag_hook.py`) — `before_stream` hook, автоматически инжектирует релевантные чанки в system prompt перед каждым LLM-запросом. Контролируется через `RAG_ENABLED`, `RAG_TOP_K`, `RAG_SEARCH_STRATEGY`. Graceful degradation: если Ollama недоступна или индекс пустой — hook молча пропускается.
 
 ### Scheduler
 

@@ -21,6 +21,20 @@ async def lifespan(app: FastAPI):
     manager = get_mcp_manager()
     await manager.start_all()
 
+    # Check Ollama availability for RagHook
+    from deepseek_chat.core.rag.config import load_rag_config
+    from deepseek_chat.core.rag.embedder import OllamaEmbeddingClient
+    from deepseek_chat.core.rag.store import get_stats
+    _rag_config = load_rag_config()
+    if OllamaEmbeddingClient(_rag_config).health_check():
+        stats = get_stats(_rag_config.db_path)
+        if stats["total"] > 0:
+            logger.info("RAG: Ollama reachable, index has %d chunks — RagHook active", stats["total"])
+        else:
+            logger.warning("RAG: Ollama reachable but index is empty — run: python3 experiments/rag_compare/cli.py index")
+    else:
+        logger.warning("RAG: Ollama not reachable — RagHook disabled (start with: ollama serve)")
+
     # Start the scheduler runner as a background asyncio task.
     # Pass the web app's client + manager directly — no duplicate MCP subprocesses.
     from mcp_servers.scheduler.scheduler_runner import run_scheduler_loop

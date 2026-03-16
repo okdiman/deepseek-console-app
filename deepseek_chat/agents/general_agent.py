@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .base_agent import BaseAgent
-from .hooks import MemoryInjectionHook, UserProfileHook, TaskStateHook, AutoTitleHook, InvariantGuardHook
+from .hooks import MemoryInjectionHook, UserProfileHook, TaskStateHook, AutoTitleHook, InvariantGuardHook, RagHook
 
 SYSTEM_PROMPT = (
     "You are a helpful, knowledgeable AI assistant. "
@@ -18,6 +18,7 @@ class GeneralAgent(BaseAgent):
 
     def __init__(self, client, session, task_machine=None, mcp_manager=None):
         hooks = [
+            RagHook(),
             MemoryInjectionHook(),
             UserProfileHook(),
             InvariantGuardHook(),

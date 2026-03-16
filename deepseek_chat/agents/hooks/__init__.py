@@ -10,6 +10,7 @@ from .user_profile import UserProfileHook
 from .auto_title import AutoTitleHook
 from .task_state import TaskStateHook
 from .invariant_guard import InvariantGuardHook
+from .rag_hook import RagHook
 
 __all__ = [
     "AgentHook",
@@ -18,4 +19,5 @@ __all__ = [
     "AutoTitleHook",
     "TaskStateHook",
     "InvariantGuardHook",
+    "RagHook",
 ]
