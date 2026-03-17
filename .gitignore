@@ -12,5 +12,6 @@ main_*.py
 data/
 
 # RAG experiment — generated index and reports (local only)
+!experiments/rag_compare/data/
 experiments/rag_compare/data/*.db
 experiments/rag_compare/data/*.json
