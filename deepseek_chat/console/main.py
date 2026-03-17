@@ -2,7 +2,7 @@
 import asyncio
 
 from deepseek_chat.console.app import ConsoleApp
-from deepseek_chat.agents.android_agent import AndroidAgent
+from deepseek_chat.agents.python_agent import PythonAgent
 from deepseek_chat.core.client import DeepSeekClient
 from deepseek_chat.core.config import load_config
 from deepseek_chat.core.session import ChatSession
@@ -12,7 +12,7 @@ async def main() -> None:
     config = load_config()
     client = DeepSeekClient(config)
     session = ChatSession(max_messages=config.context_max_messages)
-    agent = AndroidAgent(client, session)
+    agent = PythonAgent(client, session)
     app = ConsoleApp(client, session, agent)
     await app.run()
 

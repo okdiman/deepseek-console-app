@@ -1,6 +1,6 @@
 import aiohttp
 
-from ..agents.android_agent import AndroidAgent
+from ..agents.python_agent import PythonAgent
 from ..core.client import DeepSeekClient
 from ..core.session import ChatSession
 from ..core.stream_printer import StreamPrinter
@@ -8,7 +8,7 @@ from ..core.stream_printer import StreamPrinter
 
 class ConsoleApp:
     def __init__(
-        self, client: DeepSeekClient, session: ChatSession, agent: AndroidAgent
+        self, client: DeepSeekClient, session: ChatSession, agent: PythonAgent
     ) -> None:
         self._client = client
         self._session = session

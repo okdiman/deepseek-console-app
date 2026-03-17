@@ -4,7 +4,7 @@ import dataclasses
 import os
 from typing import Dict
 
-from ..agents.android_agent import AndroidAgent
+from ..agents.python_agent import PythonAgent
 from ..agents.general_agent import GeneralAgent
 from ..core.client import DeepSeekClient
 from ..core.config import ClientConfig, load_config
@@ -32,15 +32,15 @@ _active_strategy: str = "default"
 _task_machines: Dict[str, TaskStateMachine] = {}
 
 _AGENT_REGISTRY = {
-    "android": "Android Agent",
+    "python": "Python Agent",
     "general": "General Agent",
 }
 
-def get_agent(agent_id: str, session_id: str = "default") -> AndroidAgent | GeneralAgent:
+def get_agent(agent_id: str, session_id: str = "default") -> PythonAgent | GeneralAgent:
     session = get_session(session_id)
     task_machine = get_task_machine(session_id)
-    if agent_id == "android":
-        return AndroidAgent(_client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
+    if agent_id == "python":
+        return PythonAgent(_client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
     return GeneralAgent(_client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
 
 _DEFAULT_AGENT_ID = "general"
