@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 After implementing any feature or fix, check whether `CLAUDE.md` needs to be updated (new env vars, architectural changes, new patterns, changed commands). Update it before pushing.
 
+## Testing rules
+
+**Never skip failing tests.** If a test fails after a change, fix the root cause — do not `--ignore` the file, skip the test, or comment it out. Failing tests reveal real bugs (example: `auto_title.py` fired on odd message counts because the even-check was missing). Always run the full suite and fix every failure before finishing.
+
 ## Commands
 
 ```bash
@@ -155,6 +159,17 @@ Experiment code (can be deleted): `experiments/rag_compare/` — `compare.py` + 
 Corpus documents: `docs/corpus/` (6 markdown files, ~150 pages, downloaded via `scripts/download_corpus.py`).
 `RagHook` (`agents/hooks/rag_hook.py`) — `before_stream` hook, автоматически инжектирует релевантные чанки в system prompt перед каждым LLM-запросом. Контролируется через `RAG_ENABLED`, `RAG_TOP_K`, `RAG_SEARCH_STRATEGY`. Graceful degradation: если Ollama недоступна или индекс пустой — hook молча пропускается.
 
+Pipeline внутри хука (Day 23):
+1. (опционально) `QueryRewriter.rewrite()` — LLM-переформулировка запроса (`RAG_QUERY_REWRITE_ENABLED`)
+2. Embed query → Ollama
+3. Fetch `RAG_PRE_RERANK_TOP_K` кандидатов (pre-rerank pool)
+4. `rerank_and_filter()` — порог отсечения + опциональный heuristic boost (`RAG_RERANKER_TYPE`, `RAG_RERANKER_THRESHOLD`)
+5. Inject выживших чанков (≤ `RAG_TOP_K`)
+
+Новые модули RAG:
+- `core/rag/reranker.py` — `ThresholdFilter`, `HeuristicReranker`, `rerank_and_filter()`
+- `core/rag/query_rewriter.py` — `QueryRewriter` (LLM rewrite + heuristic clean)
+
 ### Scheduler
 
 `mcp_servers/scheduler/` implements autonomous background tasks:
@@ -207,6 +222,14 @@ DEEPSEEK_COMPRESSION_THRESHOLD=10   # messages before compression triggers
 DEEPSEEK_COMPRESSION_KEEP=4         # messages to keep uncompressed
 ```
 
+**RAG reranking / query rewrite (Day 23):**
+```dotenv
+RAG_PRE_RERANK_TOP_K=10          # candidates fetched before filtering (>= RAG_TOP_K)
+RAG_RERANKER_TYPE=threshold      # "none" | "threshold" | "heuristic"
+RAG_RERANKER_THRESHOLD=0.30      # min cosine similarity to keep a chunk
+RAG_QUERY_REWRITE_ENABLED=false  # rewrite query via LLM before embedding
+```
+
 Optional LLM params (set in code via `OptionalRequestParams` in `core/config.py`, not env): `temperature`, `frequency_penalty`, `presence_penalty`, `response_format`, `stop`, `thinking`.
 
 ## Testing
@@ -229,3 +252,5 @@ Tests use `pytest` with no mocking of databases (scheduler uses real SQLite temp
 | `test_mcp_registry.py` | CRUD, persistence |
 | `test_scheduler_store.py` | SQLite scheduler store |
 | `test_scheduler_utils.py` | `compute_next_run()` |
+| `test_rag_reranker.py` | `ThresholdFilter`, `HeuristicReranker`, `rerank_and_filter` |
+| `test_rag_query_rewriter.py` | `QueryRewriter.clean()`, `QueryRewriter.rewrite()` |

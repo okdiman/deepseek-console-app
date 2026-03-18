@@ -27,6 +27,10 @@ def config(tmp_path) -> RagConfig:
         ollama_model="nomic-embed-text",
         embedding_dim=4,
         db_path=str(tmp_path / "test.db"),
+        pre_rerank_top_k=10,
+        reranker_type="threshold",
+        reranker_threshold=0.30,
+        query_rewrite_enabled=False,
     )
 
 

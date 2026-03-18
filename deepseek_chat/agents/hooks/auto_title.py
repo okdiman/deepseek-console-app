@@ -25,7 +25,7 @@ class AutoTitleHook(AgentHook):
         messages = agent._session.messages()
         # Count only user turns to avoid being thrown off by tool_calls/tool messages
         user_turns = sum(1 for m in messages if m.get("role") == "user")
-        if user_turns in (1, 2):
+        if len(messages) % 2 == 0 and user_turns in (1, 2):
             await self._generate_title(agent, messages)
 
     async def _generate_title(self, agent: BaseAgent, messages: List[Dict[str, str]]) -> None:

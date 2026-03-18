@@ -1,8 +1,12 @@
 """
 RagHook — injects relevant document chunks into the system prompt before each LLM call.
 
-Embeds the user's query via Ollama, searches the local RAG index,
-and appends the top-k results to the system prompt as reference context.
+Pipeline:
+  1. (optional) Rewrite the user query via LLM for better retrieval
+  2. Embed the (possibly rewritten) query via Ollama
+  3. Fetch pre_rerank_top_k candidates from the local index
+  4. Rerank / filter to final top_k chunks
+  5. Append the surviving chunks to the system prompt
 
 Gracefully disabled when:
   - RAG_ENABLED=false (env var)
@@ -27,6 +31,13 @@ logger = logging.getLogger(__name__)
 _RAG_ENABLED = os.getenv("RAG_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}
 _TOP_K = int(os.getenv("RAG_TOP_K", "3"))
 _STRATEGY = os.getenv("RAG_SEARCH_STRATEGY", "structure")
+_PRE_RERANK_TOP_K = int(os.getenv("RAG_PRE_RERANK_TOP_K", "10"))
+_RERANKER_TYPE = os.getenv("RAG_RERANKER_TYPE", "threshold")
+_RERANKER_THRESHOLD = float(os.getenv("RAG_RERANKER_THRESHOLD", "0.30"))
+_QUERY_REWRITE_ENABLED = (
+    os.getenv("RAG_QUERY_REWRITE_ENABLED", "false").strip().lower()
+    not in {"0", "false", "no", "off"}
+)
 
 
 class RagHook(AgentHook):
@@ -34,9 +45,11 @@ class RagHook(AgentHook):
     Retrieval-Augmented Generation hook.
 
     On every before_stream call:
-      1. Embeds user_input via Ollama (nomic-embed-text)
-      2. Searches the local SQLite index for top-k relevant chunks
-      3. Appends them to the system_prompt as a "Relevant documentation" block
+      1. Optionally rewrites the user query via LLM (RAG_QUERY_REWRITE_ENABLED)
+      2. Embeds the query via Ollama (nomic-embed-text)
+      3. Fetches RAG_PRE_RERANK_TOP_K candidates from the SQLite index
+      4. Filters/reranks to RAG_TOP_K chunks (RAG_RERANKER_TYPE + RAG_RERANKER_THRESHOLD)
+      5. Appends surviving chunks to the system_prompt
 
     If Ollama is unreachable or the index is empty, the hook silently
     returns the unchanged system_prompt — the agent continues normally.
@@ -90,21 +103,50 @@ class RagHook(AgentHook):
         try:
             from deepseek_chat.core.rag.config import load_rag_config
             from deepseek_chat.core.rag.embedder import OllamaEmbeddingClient
+            from deepseek_chat.core.rag.query_rewriter import QueryRewriter
+            from deepseek_chat.core.rag.reranker import rerank_and_filter
             from deepseek_chat.core.rag.store import search_by_embedding
 
             config = load_rag_config()
-            embedder = OllamaEmbeddingClient(config)
 
-            vec = embedder.embed([user_input])[0]
-            results = search_by_embedding(
+            # Step 1: optionally rewrite query
+            query = user_input
+            if _QUERY_REWRITE_ENABLED:
+                query = await QueryRewriter(agent._client).rewrite(user_input)
+
+            # Step 2: embed
+            embedder = OllamaEmbeddingClient(config)
+            vec = embedder.embed([query])[0]
+
+            # Step 3: fetch more candidates than needed (pre-rerank pool)
+            pre_k = max(_PRE_RERANK_TOP_K, _TOP_K)
+            candidates = search_by_embedding(
                 vec,
-                top_k=_TOP_K,
+                top_k=pre_k,
                 strategy=_STRATEGY,
                 db_path=config.db_path,
             )
 
+            # Step 4: rerank / filter
+            filter_result = rerank_and_filter(
+                query=query,
+                results=candidates,
+                reranker_type=_RERANKER_TYPE,
+                threshold=_RERANKER_THRESHOLD,
+                final_top_k=_TOP_K,
+            )
+            results = filter_result.results
+
             if not results:
                 return system_prompt
+
+            logger.debug(
+                "RagHook: %d/%d chunks passed filter (threshold=%.2f, type=%s)",
+                filter_result.post_filter_count,
+                filter_result.pre_filter_count,
+                _RERANKER_THRESHOLD,
+                _RERANKER_TYPE,
+            )
 
             return system_prompt + _format_rag_block(results)
 

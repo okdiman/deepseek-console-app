@@ -22,6 +22,14 @@ class RagConfig:
     # Storage
     db_path: str                # path to SQLite index file
 
+    # Reranking / filtering
+    pre_rerank_top_k: int       # candidates fetched before filtering (should be > RAG_TOP_K)
+    reranker_type: str          # "none" | "threshold" | "heuristic"
+    reranker_threshold: float   # minimum cosine similarity score to keep a chunk
+
+    # Query rewriting
+    query_rewrite_enabled: bool  # rewrite query via LLM before embedding
+
 
 def load_rag_config() -> RagConfig:
     load_dotenv()
@@ -32,4 +40,9 @@ def load_rag_config() -> RagConfig:
         ollama_model=os.getenv("RAG_OLLAMA_MODEL", "nomic-embed-text"),
         embedding_dim=int(os.getenv("RAG_EMBEDDING_DIM", "768")),
         db_path=os.getenv("RAG_DB_PATH", _DEFAULT_DB),
+        pre_rerank_top_k=int(os.getenv("RAG_PRE_RERANK_TOP_K", "10")),
+        reranker_type=os.getenv("RAG_RERANKER_TYPE", "threshold"),
+        reranker_threshold=float(os.getenv("RAG_RERANKER_THRESHOLD", "0.30")),
+        query_rewrite_enabled=os.getenv("RAG_QUERY_REWRITE_ENABLED", "false").strip().lower()
+        not in {"0", "false", "no", "off"},
     )

@@ -36,6 +36,7 @@ CORPUS_FILES: List[CorpusFile] = [
     CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "web" / "routes.py",            "python", "Web: routes.py"),
     CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "web" / "streaming.py",         "python", "Web: streaming.py"),
     CorpusFile(_PROJECT_ROOT / "mcp_servers" / "scheduler" / "scheduler_store.py", "python", "Scheduler: store.py"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "mcp_manager.py",        "python", "Core: mcp_manager.py"),
 ]
 
 

@@ -5,10 +5,14 @@ RAG experiment CLI.
 Commands:
     index      [--strategy fixed|structure|both]
     search     --query "..." [--strategy fixed|structure|both] [--top-k N]
+               [--rerank] [--threshold F] [--reranker-type threshold|heuristic]
     compare
     stats
     ask        --query "..." [--no-rag] [--top-k N] [--strategy ...]
     benchmark  [--top-k N] [--strategy ...] [--save]
+               [--mode all|baseline|filter|rewrite|full]
+               [--pre-rerank-top-k N] [--threshold F]
+               [--reranker-type threshold|heuristic]
 """
 
 import argparse
@@ -22,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from deepseek_chat.core.rag.config import load_rag_config
 from deepseek_chat.core.rag.embedder import OllamaEmbeddingClient
 from deepseek_chat.core.rag.pipeline import run_pipeline
+from deepseek_chat.core.rag.reranker import rerank_and_filter
 from deepseek_chat.core.rag.store import get_stats, search_by_embedding
 from experiments.rag_compare.compare import compare_strategies, print_report, save_report
 
@@ -40,14 +45,31 @@ def cmd_search(args: argparse.Namespace) -> None:
     embedder = OllamaEmbeddingClient(config)
 
     print(f"Query: {args.query!r}")
+    if args.rerank:
+        print(f"Reranker: type={args.reranker_type}  threshold={args.threshold}  "
+              f"pre_k={args.pre_rerank_top_k} → final_k={args.top_k}")
     vec = embedder.embed([args.query])[0]
 
     strategies = ["fixed", "structure"] if args.strategy == "both" else [args.strategy]
     for strat in strategies:
+        pre_k = args.pre_rerank_top_k if args.rerank else args.top_k
         results = search_by_embedding(
-            vec, top_k=args.top_k, strategy=strat, db_path=config.db_path
+            vec, top_k=pre_k, strategy=strat, db_path=config.db_path
         )
-        print(f"\n── {strat.upper()} (top {args.top_k}) ─────────────────────")
+        print(f"\n── {strat.upper()} (fetched {pre_k}) ─────────────────────")
+
+        if args.rerank:
+            fr = rerank_and_filter(
+                query=args.query,
+                results=results,
+                reranker_type=args.reranker_type,
+                threshold=args.threshold,
+                final_top_k=args.top_k,
+            )
+            print(f"   After filter: {fr.post_filter_count}/{fr.pre_filter_count} passed "
+                  f"(threshold={fr.threshold_used:.2f}), showing top {len(fr.results)}")
+            results = fr.results
+
         for i, r in enumerate(results, 1):
             section = f"  section: {r['section']}" if r.get("section") else ""
             print(f"\n{i}. score={r['score']:.4f}  [{r['title']}]{section}")
@@ -97,16 +119,42 @@ def cmd_ask(args: argparse.Namespace) -> None:
 
 
 def cmd_benchmark(args: argparse.Namespace) -> None:
-    from experiments.rag_compare.benchmark import run_benchmark, print_results, save_results
-
-    results = asyncio.run(
-        run_benchmark(top_k=args.top_k, strategy=args.strategy, verbose=True)
+    from experiments.rag_compare.benchmark import (
+        run_benchmark,
+        run_benchmark_modes,
+        print_results,
+        print_mode_results,
+        save_results,
+        save_mode_results,
     )
-    print_results(results)
 
-    if args.save:
-        path = save_results(results)
-        print(f"\nResults saved to: {path}")
+    if args.mode == "legacy":
+        # Original 2-mode: plain vs RAG
+        results = asyncio.run(
+            run_benchmark(top_k=args.top_k, strategy=args.strategy, verbose=True)
+        )
+        print_results(results)
+        if args.save:
+            path = save_results(results)
+            print(f"\nResults saved to: {path}")
+    else:
+        # 4-mode comparison
+        modes = None if args.mode == "all" else [args.mode]
+        results = asyncio.run(
+            run_benchmark_modes(
+                top_k=args.top_k,
+                strategy=args.strategy,
+                pre_rerank_top_k=args.pre_rerank_top_k,
+                threshold=args.threshold,
+                reranker_type=args.reranker_type,
+                modes=modes,
+                verbose=True,
+            )
+        )
+        print_mode_results(results)
+        if args.save:
+            path = save_mode_results(results)
+            print(f"\nResults saved to: {path}")
 
 
 def main() -> None:
@@ -132,6 +180,15 @@ def main() -> None:
         default="both",
     )
     p_search.add_argument("--top-k", type=int, default=3, dest="top_k")
+    p_search.add_argument("--rerank", action="store_true",
+                          help="Apply reranker/filter after search")
+    p_search.add_argument("--threshold", type=float, default=0.30,
+                          help="Min similarity score (default: 0.30)")
+    p_search.add_argument("--reranker-type", choices=["threshold", "heuristic"],
+                          default="threshold", dest="reranker_type")
+    p_search.add_argument("--pre-rerank-top-k", type=int, default=10,
+                          dest="pre_rerank_top_k",
+                          help="Candidates fetched before filtering (default: 10)")
 
     # compare
     sub.add_parser("compare", help="Compare chunking strategies on probe queries")
@@ -148,11 +205,32 @@ def main() -> None:
     p_ask.add_argument("--top-k", type=int, default=3, dest="top_k")
 
     # benchmark
-    p_bench = sub.add_parser("benchmark", help="Run RAG vs no-RAG on 10 control questions")
+    p_bench = sub.add_parser("benchmark", help="Run RAG benchmark on 10 control questions")
     p_bench.add_argument("--strategy", choices=["fixed", "structure"], default="structure")
     p_bench.add_argument("--top-k", type=int, default=3, dest="top_k")
     p_bench.add_argument("--save", action="store_true",
-                         help="Save results to data/benchmark_results.json")
+                         help="Save results to data/")
+    p_bench.add_argument(
+        "--mode",
+        choices=["all", "baseline", "filter", "rewrite", "full", "legacy"],
+        default="all",
+        help=(
+            "all     — 4-mode comparison (default)\n"
+            "baseline — RAG, no filter, no rewrite\n"
+            "filter  — RAG + threshold filter\n"
+            "rewrite — RAG + query rewrite\n"
+            "full    — RAG + rewrite + filter\n"
+            "legacy  — original plain-vs-RAG (2-mode)"
+        ),
+    )
+    p_bench.add_argument("--threshold", type=float, default=0.30,
+                         help="Min cosine similarity to keep a chunk (default: 0.30)")
+    p_bench.add_argument("--reranker-type", choices=["threshold", "heuristic"],
+                         default="threshold", dest="reranker_type",
+                         help="Reranker strategy (default: threshold)")
+    p_bench.add_argument("--pre-rerank-top-k", type=int, default=10,
+                         dest="pre_rerank_top_k",
+                         help="Candidates fetched before filtering (default: 10)")
 
     args = parser.parse_args()
 
