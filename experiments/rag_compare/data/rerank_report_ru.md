@@ -40,6 +40,52 @@
 
 ---
 
+## Технологический стек
+
+| Компонент | Роль | Почему именно это |
+|-----------|------|-------------------|
+| **Ollama + nomic-embed-text** | Embedding запроса и чанков | Локально, без API-ключа; 768-мерные плотные вектора; хорошо работает на технических текстах |
+| **Cosine similarity в SQLite** | Поиск кандидатов | Уже был с Day 22; хранит чанки + вектора локально без отдельного сервиса |
+| **HeuristicReranker** | Второй проход сортировки | Лёгкий, без LLM-вызова; особенно эффективен на keyword-rich технических запросах |
+| **ThresholdFilter** | Отсечение нерелевантных | Убирает "мусор" по минимальному порогу cosine score |
+| **LLM query expand** | Расширение запроса | LLM знает технические синонимы домена лучше, чем любой словарь или regex |
+
+**Почему cosine similarity не гарантирует релевантность сама по себе?** Вектора отражают семантическую близость — но не точное совпадение терминов. Запрос "components of RAG" даёт высокую similarity с чанком из `fastapi_overview.md`, где слово "retrieval" стоит в другом контексте. Reranker и expand решают именно это: первый переставляет по keyword overlap, второй смещает вектор ближе к нужному документу.
+
+---
+
+## Пайплайн RagHook после Day 23
+
+`RagHook.before_stream()` вызывается перед каждым LLM-запросом:
+
+```
+user_input
+    │
+    ▼
+[1] QueryRewriter.rewrite()        ← опционально (RAG_QUERY_REWRITE_ENABLED)
+    │   LLM добавляет 3-5 синонимов, сохраняя оригинальные слова
+    │   Санити-чек: если overlap < 50% с оригиналом — используем оригинал
+    │
+    ▼
+[2] OllamaEmbeddingClient.embed()  ← nomic-embed-text, 768-мерный вектор
+    │
+    ▼
+[3] search_by_embedding(top_k=10)  ← pre-rerank pool из SQLite (RAG_PRE_RERANK_TOP_K)
+    │
+    ▼
+[4] rerank_and_filter()            ← threshold / heuristic (RAG_RERANKER_TYPE)
+    │   heuristic: score × (1 + 0.3 × keyword_overlap), затем threshold=0.55
+    │   threshold: просто отрезает всё ниже порога
+    │   none: pass-through
+    │
+    ▼
+[5] _format_rag_block(top_3)       ← форматирует и добавляет в system_prompt
+```
+
+Graceful degradation на каждом шаге: Ollama недоступна, индекс пустой, LLM rewriter вернул мусор — всё это тихо игнорируется, агент продолжает без RAG.
+
+---
+
 ## Четыре режима сравнения
 
 | Режим | Rewrite | Reranker | Описание |
