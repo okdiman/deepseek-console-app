@@ -42,6 +42,8 @@ python3 experiments/rag_compare/cli.py index
 python3 experiments/rag_compare/cli.py search --query "how does attention work?"
 python3 experiments/rag_compare/cli.py compare
 python3 experiments/rag_compare/cli.py stats
+python3 experiments/rag_compare/cli.py citations            # citation & IDK check (Day 24)
+python3 experiments/rag_compare/cli.py citations --save     # save to data/citation_check_report.json
 ```
 
 ## Architecture
@@ -159,12 +161,16 @@ Experiment code (can be deleted): `experiments/rag_compare/` — `compare.py` + 
 Corpus documents: `docs/corpus/` (6 markdown files, ~150 pages, downloaded via `scripts/download_corpus.py`).
 `RagHook` (`agents/hooks/rag_hook.py`) — `before_stream` hook, автоматически инжектирует релевантные чанки в system prompt перед каждым LLM-запросом. Контролируется через `RAG_ENABLED`, `RAG_TOP_K`, `RAG_SEARCH_STRATEGY`. Graceful degradation: если Ollama недоступна или индекс пустой — hook молча пропускается.
 
-Pipeline внутри хука (Day 23):
+Pipeline внутри хука (Day 23–24):
 1. (опционально) `QueryRewriter.rewrite()` — LLM-переформулировка запроса (`RAG_QUERY_REWRITE_ENABLED`)
 2. Embed query → Ollama
 3. Fetch `RAG_PRE_RERANK_TOP_K` кандидатов (pre-rerank pool)
 4. `rerank_and_filter()` — порог отсечения + опциональный heuristic boost (`RAG_RERANKER_TYPE`, `RAG_RERANKER_THRESHOLD`)
-5. Inject выживших чанков (≤ `RAG_TOP_K`)
+5. `format_citation_block()` — нумерованные цитаты + инструкция по уровню уверенности (`RAG_CITATIONS_ENABLED`)
+   - **confident** (max_score ≥ `RAG_WEAK_CONTEXT_THRESHOLD`): полные цитаты, обязательный список источников
+   - **uncertain** (max_score ≥ `RAG_IDK_THRESHOLD`): цитаты + предупреждение об умеренной уверенности
+   - **weak** (max_score < `RAG_IDK_THRESHOLD`): инструкция "не знаю", запрос уточнения
+   - **empty** (нет чанков): инструкция "не знаю", запрет отвечать из общих знаний
 
 Новые модули RAG:
 - `core/rag/reranker.py` — `ThresholdFilter`, `HeuristicReranker`, `rerank_and_filter()`
@@ -228,6 +234,10 @@ RAG_PRE_RERANK_TOP_K=10          # candidates fetched before filtering (>= RAG_T
 RAG_RERANKER_TYPE=threshold      # "none" | "threshold" | "heuristic"
 RAG_RERANKER_THRESHOLD=0.30      # min cosine similarity to keep a chunk
 RAG_QUERY_REWRITE_ENABLED=false  # rewrite query via LLM before embedding
+# Citations & anti-hallucination (Day 24)
+RAG_CITATIONS_ENABLED=true       # inject numbered citation format + instructions
+RAG_IDK_THRESHOLD=0.45           # max_score below this → "I don't know" response
+RAG_WEAK_CONTEXT_THRESHOLD=0.55  # max_score below this → uncertain response with caveat
 ```
 
 Optional LLM params (set in code via `OptionalRequestParams` in `core/config.py`, not env): `temperature`, `frequency_penalty`, `presence_penalty`, `response_format`, `stop`, `thinking`.
@@ -254,3 +264,4 @@ Tests use `pytest` with no mocking of databases (scheduler uses real SQLite temp
 | `test_scheduler_utils.py` | `compute_next_run()` |
 | `test_rag_reranker.py` | `ThresholdFilter`, `HeuristicReranker`, `rerank_and_filter` |
 | `test_rag_query_rewriter.py` | `QueryRewriter.clean()`, `QueryRewriter.rewrite()` |
+| `test_rag_citations.py` | `assess_confidence`, `format_citation_block`, config defaults |

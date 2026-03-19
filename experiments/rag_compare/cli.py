@@ -118,6 +118,32 @@ def cmd_ask(args: argparse.Namespace) -> None:
         print(f"\nSources used: {sources}")
 
 
+def cmd_citations(args: argparse.Namespace) -> None:
+    from experiments.rag_compare.citation_check import (
+        run_citation_check,
+        print_results,
+        save_results,
+    )
+
+    results = asyncio.run(
+        run_citation_check(
+            top_k=args.top_k,
+            pre_rerank_top_k=args.pre_rerank_top_k,
+            reranker_type=args.reranker_type,
+            reranker_threshold=args.threshold,
+            idk_threshold=args.idk_threshold,
+            weak_context_threshold=args.weak_context_threshold,
+            strategy=args.strategy,
+            semantic_threshold=args.semantic_threshold,
+            verbose=True,
+        )
+    )
+    print_results(results)
+    if args.save:
+        path = save_results(results)
+        print(f"\nReport saved to: {path}")
+
+
 def cmd_benchmark(args: argparse.Namespace) -> None:
     from experiments.rag_compare.benchmark import (
         run_benchmark,
@@ -204,6 +230,21 @@ def main() -> None:
     p_ask.add_argument("--strategy", choices=["fixed", "structure"], default="structure")
     p_ask.add_argument("--top-k", type=int, default=3, dest="top_k")
 
+    # citations
+    p_cit = sub.add_parser("citations", help="Citation & anti-hallucination check on 10 questions")
+    p_cit.add_argument("--strategy", choices=["fixed", "structure"], default="structure")
+    p_cit.add_argument("--top-k", type=int, default=3, dest="top_k")
+    p_cit.add_argument("--pre-rerank-top-k", type=int, default=10, dest="pre_rerank_top_k")
+    p_cit.add_argument("--threshold", type=float, default=0.30)
+    p_cit.add_argument("--reranker-type", choices=["threshold", "heuristic"],
+                       default="threshold", dest="reranker_type")
+    p_cit.add_argument("--idk-threshold", type=float, default=0.45, dest="idk_threshold")
+    p_cit.add_argument("--weak-context-threshold", type=float, default=0.55,
+                       dest="weak_context_threshold")
+    p_cit.add_argument("--semantic-threshold", type=float, default=0.60,
+                       dest="semantic_threshold")
+    p_cit.add_argument("--save", action="store_true", help="Save report to data/")
+
     # benchmark
     p_bench = sub.add_parser("benchmark", help="Run RAG benchmark on 10 control questions")
     p_bench.add_argument("--strategy", choices=["fixed", "structure"], default="structure")
@@ -241,6 +282,7 @@ def main() -> None:
         "stats": cmd_stats,
         "ask": cmd_ask,
         "benchmark": cmd_benchmark,
+        "citations": cmd_citations,
     }
     dispatch[args.command](args)
 

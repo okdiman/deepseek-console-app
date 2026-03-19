@@ -6,7 +6,14 @@ Pipeline:
   2. Embed the (possibly rewritten) query via Ollama
   3. Fetch pre_rerank_top_k candidates from the local index
   4. Rerank / filter to final top_k chunks
-  5. Append the surviving chunks to the system prompt
+  5. Format citation block based on context confidence level
+  6. Append the citation block to the system prompt
+
+Context confidence levels (Day 24):
+  empty:     no chunks → must say "I don't know"
+  weak:      max_score < RAG_IDK_THRESHOLD → must say "I don't know"
+  uncertain: max_score < RAG_WEAK_CONTEXT_THRESHOLD → answer with caveat
+  confident: max_score >= RAG_WEAK_CONTEXT_THRESHOLD → full citation required
 
 Gracefully disabled when:
   - RAG_ENABLED=false (env var)
@@ -18,7 +25,6 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List
 
 from .base import AgentHook
@@ -38,6 +44,12 @@ _QUERY_REWRITE_ENABLED = (
     os.getenv("RAG_QUERY_REWRITE_ENABLED", "false").strip().lower()
     not in {"0", "false", "no", "off"}
 )
+_CITATIONS_ENABLED = (
+    os.getenv("RAG_CITATIONS_ENABLED", "true").strip().lower()
+    not in {"0", "false", "no", "off"}
+)
+_IDK_THRESHOLD = float(os.getenv("RAG_IDK_THRESHOLD", "0.45"))
+_WEAK_CONTEXT_THRESHOLD = float(os.getenv("RAG_WEAK_CONTEXT_THRESHOLD", "0.55"))
 
 
 class RagHook(AgentHook):
@@ -137,9 +149,6 @@ class RagHook(AgentHook):
             )
             results = filter_result.results
 
-            if not results:
-                return system_prompt
-
             logger.debug(
                 "RagHook: %d/%d chunks passed filter (threshold=%.2f, type=%s)",
                 filter_result.post_filter_count,
@@ -148,7 +157,21 @@ class RagHook(AgentHook):
                 _RERANKER_TYPE,
             )
 
-            return system_prompt + _format_rag_block(results)
+            # Step 5: format citation block (with confidence-based instructions)
+            if _CITATIONS_ENABLED:
+                from deepseek_chat.core.rag.citations import format_citation_block
+                block = format_citation_block(results, _IDK_THRESHOLD, _WEAK_CONTEXT_THRESHOLD)
+                logger.debug(
+                    "RagHook: confidence=%s max_score=%.3f chunks=%d",
+                    block.confidence,
+                    block.max_score,
+                    block.chunk_count,
+                )
+                return system_prompt + block.formatted
+            else:
+                if not results:
+                    return system_prompt
+                return system_prompt + _format_rag_block(results)
 
         except Exception as exc:
             logger.warning("RagHook: search failed: %s", exc)

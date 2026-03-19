@@ -30,6 +30,11 @@ class RagConfig:
     # Query rewriting
     query_rewrite_enabled: bool  # rewrite query via LLM before embedding
 
+    # Citations & anti-hallucination (Day 24)
+    citations_enabled: bool = True    # inject numbered citation format into system prompt
+    idk_threshold: float = 0.45       # max_score below this → "I don't know" response
+    weak_context_threshold: float = 0.55  # max_score below this → uncertain response with caveat
+
 
 def load_rag_config() -> RagConfig:
     load_dotenv()
@@ -45,4 +50,8 @@ def load_rag_config() -> RagConfig:
         reranker_threshold=float(os.getenv("RAG_RERANKER_THRESHOLD", "0.30")),
         query_rewrite_enabled=os.getenv("RAG_QUERY_REWRITE_ENABLED", "false").strip().lower()
         not in {"0", "false", "no", "off"},
+        citations_enabled=os.getenv("RAG_CITATIONS_ENABLED", "true").strip().lower()
+        not in {"0", "false", "no", "off"},
+        idk_threshold=float(os.getenv("RAG_IDK_THRESHOLD", "0.45")),
+        weak_context_threshold=float(os.getenv("RAG_WEAK_CONTEXT_THRESHOLD", "0.55")),
     )
