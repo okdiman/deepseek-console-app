@@ -44,6 +44,9 @@ python3 experiments/rag_compare/cli.py compare
 python3 experiments/rag_compare/cli.py stats
 python3 experiments/rag_compare/cli.py citations            # citation & IDK check (Day 24)
 python3 experiments/rag_compare/cli.py citations --save     # save to data/citation_check_report.json
+
+# RAG mini-chat with dialogue task memory (Day 25)
+python3 experiments/rag_compare/rag_chat.py
 ```
 
 ## Architecture
@@ -83,6 +86,25 @@ All hooks inherit `AgentHook` (`agents/hooks/base.py`) with three async methods:
 
 Active hooks are assembled by `web/state.py → get_agent()` and injected via the constructor.
 
+`PythonAgent` hook stack (in order): `RagHook → MemoryInjectionHook → DialogueTaskHook → UserProfileHook → InvariantGuardHook → AutoTitleHook`
+
+### Dialogue Task Memory (Day 25)
+
+`DialogueTask` (`core/dialogue_task.py`) — lightweight structured tracker for the current conversation:
+- `goal` — what the user wants to achieve in this dialogue
+- `clarifications` — facts the user has clarified
+- `constraints` — rules / terms fixed by the user
+- `explored_topics` — topics already covered in depth
+
+Updated via markers the agent embeds in responses:
+```
+[GOAL: ...]  [CLARIFIED: ...]  [CONSTRAINT: ...]  [TOPIC: ...]
+```
+
+`DialogueTaskHook` (`agents/hooks/dialogue_task_hook.py`) — injects task memory into system prompt (`before_stream`) and parses markers from agent response (`after_stream`). Persists to `DIALOGUE_TASK_PATH` (default: `<DATA_DIR>/dialogue_task.json`). Cleared on `/clear` in `rag_chat.py`.
+
+`RagHook.last_chunks` — after each `before_stream` call the list of retrieved chunks is stored on the hook instance so the demo CLI can display them separately.
+
 ### Context Strategy
 
 `UnifiedStrategy` (`agents/strategies.py`) processes conversation history before each LLM call:
@@ -116,6 +138,7 @@ All state lives in `~/.deepseek_chat/`:
 | `invariants.json` | Hard constraints | No |
 | `mcp_servers.json` | MCP server configs | No |
 | `scheduler.db` | SQLite: scheduled tasks + history | No |
+| `dialogue_task.json` | Dialogue task memory (goal, clarifications, constraints, topics) | Yes (in `rag_chat.py`) |
 
 All RAG experiment state lives in `experiments/rag_compare/data/`:
 | File | Purpose |
@@ -265,3 +288,5 @@ Tests use `pytest` with no mocking of databases (scheduler uses real SQLite temp
 | `test_rag_reranker.py` | `ThresholdFilter`, `HeuristicReranker`, `rerank_and_filter` |
 | `test_rag_query_rewriter.py` | `QueryRewriter.clean()`, `QueryRewriter.rewrite()` |
 | `test_rag_citations.py` | `assess_confidence`, `format_citation_block`, config defaults |
+| `test_dialogue_task.py` | `DialogueTask`: apply_marker, get_injection, persistence |
+| `test_dialogue_task_hook.py` | `DialogueTaskHook`: before_stream injection, after_stream marker parsing |

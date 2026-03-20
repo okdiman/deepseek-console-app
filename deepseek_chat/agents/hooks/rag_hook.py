@@ -69,6 +69,7 @@ class RagHook(AgentHook):
 
     def __init__(self) -> None:
         self._ready: bool | None = None  # None = not checked yet
+        self.last_chunks: list = []  # last retrieved chunks; readable by the CLI for display
 
     def _check_ready(self) -> bool:
         """Lazy check: is Ollama running and index non-empty?"""
@@ -121,10 +122,21 @@ class RagHook(AgentHook):
 
             config = load_rag_config()
 
-            # Step 1: optionally rewrite query
+            # Step 1: enrich query with dialogue task goal (if available)
             query = user_input
+            try:
+                from deepseek_chat.core.dialogue_task import DialogueTask
+                task = DialogueTask.load()
+                if task.goal and len(user_input.split()) <= 12:
+                    # Short follow-up questions benefit most from goal context
+                    query = f"{task.goal}: {user_input}"
+                    logger.debug("RagHook: enriched query with goal: %r", query[:80])
+            except Exception:
+                pass
+
+            # Step 1b: optionally rewrite query via LLM
             if _QUERY_REWRITE_ENABLED:
-                query = await QueryRewriter(agent._client).rewrite(user_input)
+                query = await QueryRewriter(agent._client).rewrite(query)
 
             # Step 2: embed
             embedder = OllamaEmbeddingClient(config)
@@ -148,6 +160,7 @@ class RagHook(AgentHook):
                 final_top_k=_TOP_K,
             )
             results = filter_result.results
+            self.last_chunks = results  # expose for display in CLI
 
             logger.debug(
                 "RagHook: %d/%d chunks passed filter (threshold=%.2f, type=%s)",

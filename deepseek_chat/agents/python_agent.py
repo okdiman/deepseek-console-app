@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .base_agent import BaseAgent
-from .hooks import MemoryInjectionHook, UserProfileHook, AutoTitleHook, InvariantGuardHook, RagHook
+from .hooks import MemoryInjectionHook, UserProfileHook, AutoTitleHook, InvariantGuardHook, RagHook, DialogueTaskHook
 
 SYSTEM_PROMPT = (
     "You are a senior Python developer with deep expertise in modern Python (3.10+). "
@@ -26,6 +26,7 @@ class PythonAgent(BaseAgent):
         hooks = [
             RagHook(),
             MemoryInjectionHook(),
+            DialogueTaskHook(),
             UserProfileHook(),
             InvariantGuardHook(),
             AutoTitleHook(),
