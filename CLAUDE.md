@@ -6,6 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 After implementing any feature or fix, check whether `CLAUDE.md` needs to be updated (new env vars, architectural changes, new patterns, changed commands). Update it before pushing.
 
+If the change touches a package that has a `_HOW_IT_WORKS.md`, update that file too — it is the detailed reference for that package and must stay in sync with the code.
+
+## Package documentation (_HOW_IT_WORKS.md)
+
+Each major package has a `_HOW_IT_WORKS.md` that explains its internals in detail. These are the authoritative source for understanding how a subsystem works — read them before making changes to the relevant package, and update them when the behavior, structure, or interfaces change.
+
+| File | Covers |
+|------|--------|
+| `deepseek_chat/agents/_HOW_IT_WORKS.md` | Agent pipeline, BaseAgent lifecycle, all hooks, concrete agents, hook execution order |
+| `deepseek_chat/core/_HOW_IT_WORKS.md` | Config, DeepSeekClient, ChatSession, TaskStateMachine, agent_factory, paths, stream_printer |
+| `deepseek_chat/core/memory/_HOW_IT_WORKS.md` | MemoryStore, UserProfile, InvariantStore, DialogueTask — persistence and prompt injection patterns |
+| `deepseek_chat/core/mcp/_HOW_IT_WORKS.md` | MCPManager subprocess lifecycle, MCPRegistry, tool routing, tool call flow |
+| `deepseek_chat/core/rag/_HOW_IT_WORKS.md` | Full RAG pipeline: chunking, embedding, retrieval, reranking, citations, anti-hallucination |
+| `mcp_servers/_HOW_IT_WORKS.md` | MCP server protocol, server list, how to write and register a new server |
+| `mcp_servers/scheduler/_HOW_IT_WORKS.md` | Scheduler architecture: store schema, schedule formats, MCP tools, runner tick logic, task executors |
+
 ## Testing rules
 
 **Never skip failing tests.** If a test fails after a change, fix the root cause — do not `--ignore` the file, skip the test, or comment it out. Failing tests reveal real bugs (example: `auto_title.py` fired on odd message counts because the even-check was missing). Always run the full suite and fix every failure before finishing.
