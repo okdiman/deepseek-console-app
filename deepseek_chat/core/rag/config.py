@@ -1,11 +1,11 @@
 import os
 from dataclasses import dataclass
-from pathlib import Path
 
 from dotenv import load_dotenv
 
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-_DEFAULT_DB = str(_PROJECT_ROOT / "experiments" / "rag_compare" / "data" / "doc_index.db")
+from ..paths import DATA_DIR
+
+_DEFAULT_DB = str(DATA_DIR / "rag_index.db")
 
 
 @dataclass(frozen=True)

@@ -156,10 +156,14 @@ All state lives in `~/.deepseek_chat/`:
 | `scheduler.db` | SQLite: scheduled tasks + history | No |
 | `dialogue_task.json` | Dialogue task memory (goal, clarifications, constraints, topics) | Yes (in `rag_chat.py`) |
 
-All RAG experiment state lives in `experiments/rag_compare/data/`:
+RAG index lives alongside other app state in `data/` (or `DEEPSEEK_DATA_DIR`):
 | File | Purpose |
 |------|---------|
-| `doc_index.db` | SQLite: chunk text + embeddings (both strategies) |
+| `rag_index.db` | SQLite: chunk text + embeddings (both strategies) |
+
+Experiment artifacts live in `experiments/rag_compare/data/`:
+| File | Purpose |
+|------|---------|
 | `comparison_report.json` | Strategy comparison results |
 
 Memory/profile/invariants are **reloaded from disk on every request** to pick up real-time edits.

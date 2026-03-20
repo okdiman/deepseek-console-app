@@ -13,15 +13,20 @@ import math
 import os
 import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .chunkers import Chunk
+from .config import _DEFAULT_DB
 
-_DEFAULT_DB = str(
-    Path(__file__).parent.parent.parent.parent
-    / "experiments" / "rag_compare" / "data" / "doc_index.db"
-)
+# ── Embedding cache ────────────────────────────────────────────────────────
+# key: (db_path, strategy_or_None) → rows with pre-parsed "_vec" field
+# Invalidated on any write (upsert / clear). Survives across requests.
+_embed_cache: Dict[Tuple[str, Optional[str]], List[Dict]] = {}
+
+
+def _invalidate_cache(db_path: str) -> None:
+    for key in [k for k in _embed_cache if k[0] == db_path]:
+        del _embed_cache[key]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -82,27 +87,34 @@ def upsert_chunk(
     embedding: List[float],
     db_path: str = _DEFAULT_DB,
 ) -> None:
-    """Insert or replace a chunk with its embedding vector."""
+    """Insert or replace a single chunk. Prefer upsert_chunks_bulk for batch indexing."""
+    upsert_chunks_bulk([chunk], [embedding], db_path)
+
+
+def upsert_chunks_bulk(
+    chunks: List[Chunk],
+    embeddings: List[List[float]],
+    db_path: str = _DEFAULT_DB,
+) -> None:
+    """Insert or replace multiple chunks in a single transaction."""
+    if not chunks:
+        return
+    now = _now_iso()
     conn = _connect(db_path)
-    conn.execute(
+    conn.executemany(
         """INSERT OR REPLACE INTO doc_chunks
            (chunk_id, source, title, section, strategy, chunk_index,
             text, embedding, indexed_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (
-            chunk.chunk_id,
-            chunk.source,
-            chunk.title,
-            chunk.section,
-            chunk.strategy,
-            chunk.index,
-            chunk.text,
-            json.dumps(embedding),
-            _now_iso(),
-        ),
+        [
+            (c.chunk_id, c.source, c.title, c.section, c.strategy, c.index,
+             c.text, json.dumps(vec), now)
+            for c, vec in zip(chunks, embeddings)
+        ],
     )
     conn.commit()
     conn.close()
+    _invalidate_cache(db_path)
 
 
 def get_all_chunks(
@@ -133,6 +145,7 @@ def clear_strategy(strategy: str, db_path: str = _DEFAULT_DB) -> int:
     conn.commit()
     deleted = cur.rowcount
     conn.close()
+    _invalidate_cache(db_path)
     return deleted
 
 
@@ -144,16 +157,28 @@ def search_by_embedding(
     strategy: Optional[str] = None,
     db_path: str = _DEFAULT_DB,
 ) -> List[Dict[str, Any]]:
-    """Return top-k chunks ranked by cosine similarity to query_vec."""
-    rows = get_all_chunks(strategy=strategy, db_path=db_path)
+    """Return top-k chunks ranked by cosine similarity to query_vec.
+
+    Embeddings are parsed from JSON once and cached in memory.
+    Cache is invalidated whenever chunks are written or cleared.
+    """
+    cache_key = (db_path, strategy)
+    if cache_key not in _embed_cache:
+        rows = get_all_chunks(strategy=strategy, db_path=db_path)
+        parsed = []
+        for row in rows:
+            raw = row.get("embedding")
+            if not raw:
+                continue
+            d = dict(row)
+            d["_vec"] = json.loads(raw)
+            parsed.append(d)
+        _embed_cache[cache_key] = parsed
+
     scored = []
-    for row in rows:
-        raw = row.get("embedding")
-        if not raw:
-            continue
-        vec = json.loads(raw)
-        score = _cosine_sim(query_vec, vec)
-        scored.append({**row, "score": score})
+    for row in _embed_cache[cache_key]:
+        score = _cosine_sim(query_vec, row["_vec"])
+        scored.append({k: v for k, v in row.items() if k != "_vec"} | {"score": score})
     scored.sort(key=lambda x: x["score"], reverse=True)
     return scored[:top_k]
 

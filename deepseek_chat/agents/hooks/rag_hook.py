@@ -25,9 +25,18 @@ from __future__ import annotations
 
 import logging
 import os
+import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List
 
 from .base import AgentHook
+from deepseek_chat.core.rag.citations import format_citation_block
+from deepseek_chat.core.rag.config import load_rag_config
+from deepseek_chat.core.rag.embedder import OllamaEmbeddingClient
+from deepseek_chat.core.rag.query_rewriter import QueryRewriter
+from deepseek_chat.core.rag.reranker import rerank_and_filter
+from deepseek_chat.core.rag.store import get_stats, search_by_embedding
+from deepseek_chat.core.memory import DialogueTask
 
 if TYPE_CHECKING:
     from ..base_agent import BaseAgent
@@ -51,6 +60,8 @@ _CITATIONS_ENABLED = (
 _IDK_THRESHOLD = float(os.getenv("RAG_IDK_THRESHOLD", "0.45"))
 _WEAK_CONTEXT_THRESHOLD = float(os.getenv("RAG_WEAK_CONTEXT_THRESHOLD", "0.55"))
 
+_RECHECK_COOLDOWN = 30.0  # seconds between readiness re-checks when not ready
+
 
 class RagHook(AgentHook):
     """
@@ -65,21 +76,19 @@ class RagHook(AgentHook):
 
     If Ollama is unreachable or the index is empty, the hook silently
     returns the unchanged system_prompt — the agent continues normally.
+    Readiness is re-checked every 30 seconds when not ready (e.g. after indexing).
     """
 
     def __init__(self) -> None:
         self._ready: bool | None = None  # None = not checked yet
+        self._last_failed_check: float = 0.0
         self.last_chunks: list = []  # last retrieved chunks; readable by the CLI for display
 
     def _check_ready(self) -> bool:
-        """Lazy check: is Ollama running and index non-empty?"""
+        """Check: is Ollama running and index non-empty?"""
         if not _RAG_ENABLED:
             return False
         try:
-            from deepseek_chat.core.rag.config import load_rag_config
-            from deepseek_chat.core.rag.embedder import OllamaEmbeddingClient
-            from deepseek_chat.core.rag.store import get_stats
-
             config = load_rag_config()
             stats = get_stats(config.db_path)
             if stats["total"] == 0:
@@ -106,26 +115,24 @@ class RagHook(AgentHook):
         if not _RAG_ENABLED:
             return system_prompt
 
-        # Lazy-initialize readiness check (once per app lifetime)
-        if self._ready is None:
-            self._ready = self._check_ready()
+        # Re-check readiness if not confirmed ready yet.
+        # Uses a cooldown to avoid hammering Ollama on every request when it's down.
+        if not self._ready:
+            now = time.monotonic()
+            if self._ready is None or now - self._last_failed_check >= _RECHECK_COOLDOWN:
+                self._ready = self._check_ready()
+                if not self._ready:
+                    self._last_failed_check = now
 
         if not self._ready:
             return system_prompt
 
         try:
-            from deepseek_chat.core.rag.config import load_rag_config
-            from deepseek_chat.core.rag.embedder import OllamaEmbeddingClient
-            from deepseek_chat.core.rag.query_rewriter import QueryRewriter
-            from deepseek_chat.core.rag.reranker import rerank_and_filter
-            from deepseek_chat.core.rag.store import search_by_embedding
-
             config = load_rag_config()
 
             # Step 1: enrich query with dialogue task goal (if available)
             query = user_input
             try:
-                from deepseek_chat.core.memory import DialogueTask
                 task = DialogueTask.load()
                 if task.goal and len(user_input.split()) <= 12:
                     # Short follow-up questions benefit most from goal context
@@ -172,7 +179,6 @@ class RagHook(AgentHook):
 
             # Step 5: format citation block (with confidence-based instructions)
             if _CITATIONS_ENABLED:
-                from deepseek_chat.core.rag.citations import format_citation_block
                 block = format_citation_block(results, _IDK_THRESHOLD, _WEAK_CONTEXT_THRESHOLD)
                 logger.debug(
                     "RagHook: confidence=%s max_score=%.3f chunks=%d",
@@ -197,7 +203,7 @@ class RagHook(AgentHook):
 
 
 def _format_rag_block(results: list) -> str:
-    """Format retrieved chunks as a system prompt appendix."""
+    """Format retrieved chunks as a system prompt appendix (citations disabled mode)."""
     lines = [
         "",
         "---",

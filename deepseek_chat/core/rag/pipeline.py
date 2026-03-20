@@ -12,7 +12,7 @@ from .chunkers import Chunk, FixedSizeChunker, StructureChunker
 from .config import RagConfig, load_rag_config
 from .corpus import CORPUS_FILES, load_corpus_text
 from .embedder import OllamaEmbeddingClient
-from .store import clear_strategy, get_stats, init_db, upsert_chunk
+from .store import clear_strategy, get_stats, init_db, upsert_chunks_bulk
 
 
 @dataclass
@@ -106,9 +106,8 @@ def run_pipeline(
         if verbose:
             print()
 
-        # Persist
-        for chunk, vec in zip(all_chunks, all_embeddings):
-            upsert_chunk(chunk, vec, config.db_path)
+        # Persist all chunks in a single transaction
+        upsert_chunks_bulk(all_chunks, all_embeddings, config.db_path)
 
         elapsed = time.monotonic() - t0
         results.append(PipelineResult(
