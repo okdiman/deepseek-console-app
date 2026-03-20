@@ -9,7 +9,7 @@ from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamable_http_client
 import httpx
 
-from .mcp_registry import MCPRegistry, MCPServerConfig
+from .registry import MCPRegistry, MCPServerConfig
 
 logger = logging.getLogger(__name__)
 

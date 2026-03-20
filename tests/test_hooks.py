@@ -192,7 +192,7 @@ class TestUserProfileHook:
         agent = MagicMock()
         history = make_history()
 
-        with patch("deepseek_chat.core.profile.UserProfile.load") as mock_load:
+        with patch("deepseek_chat.core.memory.profile.UserProfile.load") as mock_load:
             mock_instance = MagicMock()
             mock_instance.is_empty.return_value = False
             mock_instance.name = "Dmitriy"
@@ -214,7 +214,7 @@ class TestUserProfileHook:
         agent = MagicMock()
         history = make_history()
 
-        with patch("deepseek_chat.core.profile.UserProfile.load") as mock_load:
+        with patch("deepseek_chat.core.memory.profile.UserProfile.load") as mock_load:
             mock_instance = MagicMock()
             mock_instance.is_empty.return_value = True
             mock_load.return_value = mock_instance
@@ -233,7 +233,7 @@ class TestInvariantGuardHook:
         agent = MagicMock()
         history = make_history()
 
-        with patch("deepseek_chat.core.invariants.InvariantStore.load") as mock_load:
+        with patch("deepseek_chat.core.memory.invariants.InvariantStore.load") as mock_load:
             mock_instance = MagicMock()
             mock_instance.get_system_prompt_injection.return_value = "INVARIANT RULES"
             mock_load.return_value = mock_instance
@@ -250,7 +250,7 @@ class TestInvariantGuardHook:
         agent = MagicMock()
         history = make_history()
 
-        with patch("deepseek_chat.core.invariants.InvariantStore.load") as mock_load:
+        with patch("deepseek_chat.core.memory.invariants.InvariantStore.load") as mock_load:
             mock_instance = MagicMock()
             mock_instance.get_system_prompt_injection.return_value = ""
             mock_load.return_value = mock_instance

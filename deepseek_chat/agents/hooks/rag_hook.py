@@ -125,7 +125,7 @@ class RagHook(AgentHook):
             # Step 1: enrich query with dialogue task goal (if available)
             query = user_input
             try:
-                from deepseek_chat.core.dialogue_task import DialogueTask
+                from deepseek_chat.core.memory import DialogueTask
                 task = DialogueTask.load()
                 if task.goal and len(user_input.split()) <= 12:
                     # Short follow-up questions benefit most from goal context

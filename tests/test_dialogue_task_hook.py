@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from deepseek_chat.agents.hooks.dialogue_task_hook import DialogueTaskHook
-from deepseek_chat.core.dialogue_task import DialogueTask
+from deepseek_chat.core.memory import DialogueTask
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

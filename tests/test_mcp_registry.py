@@ -3,7 +3,7 @@
 import os
 import pytest
 
-from deepseek_chat.core.mcp_registry import MCPRegistry, MCPServerConfig
+from deepseek_chat.core.mcp import MCPRegistry, MCPServerConfig
 
 
 def make_config(server_id="srv1", name="Test Server", enabled=True):

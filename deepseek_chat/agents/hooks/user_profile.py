@@ -16,7 +16,7 @@ class UserProfileHook(AgentHook):
     Injects context from the global UserProfile to personalize the agent responses.
     """
     async def before_stream(self, agent: BaseAgent, user_input: str, system_prompt: str, history: List[Dict[str, str]]) -> str:
-        from ...core.profile import UserProfile
+        from ...core.memory import UserProfile
         
         profile = UserProfile.load()
         if profile.is_empty():

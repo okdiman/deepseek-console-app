@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 
-from deepseek_chat.core.profile import UserProfile
+from deepseek_chat.core.memory import UserProfile
 
 
 # ── Defaults ─────────────────────────────────────────────

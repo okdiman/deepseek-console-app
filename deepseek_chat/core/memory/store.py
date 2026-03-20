@@ -6,7 +6,7 @@ from deepseek_chat.core.paths import DATA_DIR
 
 class MemoryStore:
     """
-    Standalone memory component that encapsulates the explicit memory layers 
+    Standalone memory component that encapsulates the explicit memory layers
     (Working Memory and Long-Term Memory) for use across any agent.
     """
 
@@ -46,7 +46,7 @@ class MemoryStore:
         to be injected into an agent's system prompt.
         """
         parts = []
-        
+
         if self.long_term_memory or self.working_memory:
             parts.append(
                 "CRITICAL: The following memory sections contain GROUND TRUTH facts about the user. "
@@ -55,13 +55,13 @@ class MemoryStore:
                 "Always prioritize memory data over conversation history."
             )
             parts.append("")
-        
+
         if self.long_term_memory:
             parts.append("[LONG-TERM MEMORY (Permanent — persists across all sessions)]")
             for i, fact in enumerate(self.long_term_memory, 1):
                 parts.append(f"{i}. {fact}")
             parts.append("") # padding
-            
+
         if self.working_memory:
             parts.append("[WORKING MEMORY (Temporary — clears on session reset)]")
             for i, fact in enumerate(self.working_memory, 1):
@@ -90,7 +90,7 @@ class MemoryStore:
         path = cls.get_storage_path()
         if not os.path.exists(path):
             return store
-            
+
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -98,14 +98,14 @@ class MemoryStore:
                 store.long_term_memory = data.get("long_term_memory", [])
         except Exception as e:
             print(f"[Error] Failed to load MemoryStore from {path}: {e}")
-            
+
         return store
 
     def save(self) -> None:
         """Saves memory to the global persistent JSON file."""
         path = self.get_storage_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        
+
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)

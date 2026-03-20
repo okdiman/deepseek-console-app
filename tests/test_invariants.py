@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 
-from deepseek_chat.core.invariants import InvariantStore
+from deepseek_chat.core.memory import InvariantStore
 
 
 # ── Defaults ─────────────────────────────────────────────

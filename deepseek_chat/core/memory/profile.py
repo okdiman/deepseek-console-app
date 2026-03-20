@@ -9,7 +9,7 @@ from deepseek_chat.core.paths import DATA_DIR
 class UserProfile(BaseModel):
     """
     Represents the personalization layer for an AI assistant.
-    Holds user preferences, constraints, and professional context 
+    Holds user preferences, constraints, and professional context
     which apply globally across all chat sessions.
     """
     name: str = ""
@@ -20,7 +20,7 @@ class UserProfile(BaseModel):
 
     def is_empty(self) -> bool:
         return not any([
-            self.name, self.role, self.style_preferences, 
+            self.name, self.role, self.style_preferences,
             self.formatting_rules, self.constraints
         ])
 
@@ -36,7 +36,7 @@ class UserProfile(BaseModel):
         path = cls.get_storage_path()
         if not os.path.exists(path):
             return cls()
-            
+
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -48,10 +48,10 @@ class UserProfile(BaseModel):
     def save(self) -> None:
         """Saves the UserProfile to disk as JSON."""
         path = self.get_storage_path()
-        
+
         # Ensure directory exists
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        
+
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(self.model_dump(), f, ensure_ascii=False, indent=2)

@@ -10,8 +10,7 @@ from ..core.client import DeepSeekClient
 from ..core.config import ClientConfig, load_config
 from ..core.session import ChatSession
 from ..core.task_state import TaskStateMachine
-from ..core.mcp_registry import MCPRegistry
-from ..core.mcp_manager import MCPManager
+from ..core.mcp import MCPRegistry, MCPManager
 
 _config: ClientConfig = load_config()
 

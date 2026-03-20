@@ -34,7 +34,7 @@ from deepseek_chat.agents.hooks.memory_injection import MemoryInjectionHook
 from deepseek_chat.agents.hooks.rag_hook import RagHook
 from deepseek_chat.core.client import DeepSeekClient
 from deepseek_chat.core.config import load_config
-from deepseek_chat.core.dialogue_task import DialogueTask
+from deepseek_chat.core.memory import DialogueTask
 from deepseek_chat.core.session import ChatSession
 
 

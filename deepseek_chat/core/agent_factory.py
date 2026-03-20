@@ -11,8 +11,7 @@ from __future__ import annotations
 from ..agents.background_agent import BackgroundAgent
 from ..core.client import DeepSeekClient
 from ..core.config import load_config
-from ..core.mcp_manager import MCPManager
-from ..core.mcp_registry import MCPRegistry
+from ..core.mcp import MCPManager, MCPRegistry
 from ..core.session import ChatSession
 
 

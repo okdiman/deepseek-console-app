@@ -40,13 +40,13 @@ class DialogueTaskHook(AgentHook):
         system_prompt: str,
         history: List[Dict[str, str]],
     ) -> str:
-        from ...core.dialogue_task import DialogueTask
+        from ...core.memory import DialogueTask
 
         task = DialogueTask.load()
         return system_prompt + "\n\n" + task.get_injection()
 
     async def after_stream(self, agent: "BaseAgent", full_response: str) -> None:
-        from ...core.dialogue_task import DialogueTask
+        from ...core.memory import DialogueTask
 
         matches = _MARKER_RE.findall(full_response)
         if not matches:

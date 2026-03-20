@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 
-from deepseek_chat.core.dialogue_task import DialogueTask
+from deepseek_chat.core.memory import DialogueTask
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────

@@ -37,8 +37,7 @@ from deepseek_chat.agents.hooks.user_profile import UserProfileHook
 from deepseek_chat.agents.base_agent import BaseAgent
 from deepseek_chat.core.client import DeepSeekClient
 from deepseek_chat.core.config import load_config
-from deepseek_chat.core.dialogue_task import DialogueTask
-from deepseek_chat.core.memory import MemoryStore
+from deepseek_chat.core.memory import DialogueTask, MemoryStore
 from deepseek_chat.core.session import ChatSession
 
 

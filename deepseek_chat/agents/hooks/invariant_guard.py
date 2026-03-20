@@ -19,7 +19,7 @@ class InvariantGuardHook(AgentHook):
     This ensures the LLM treats invariants as the highest-priority context.
     """
     async def before_stream(self, agent: BaseAgent, user_input: str, system_prompt: str, history: List[Dict[str, str]]) -> str:
-        from ...core.invariants import InvariantStore
+        from ...core.memory import InvariantStore
         store = InvariantStore.load()
         injection = store.get_system_prompt_injection()
         if injection:
