@@ -9,11 +9,45 @@ from pathlib import Path
 
 import asyncio
 import logging
+import shutil
+import subprocess
 
 from .routes import router
 from .state import get_client, get_mcp_manager
 
 logger = logging.getLogger(__name__)
+
+_ollama_proc: subprocess.Popen | None = None
+
+
+async def _ensure_ollama_running(embedder_cls, config) -> bool:
+    """Return True if Ollama is reachable; try to start it if not."""
+    if embedder_cls(config).health_check():
+        return True
+
+    ollama_bin = shutil.which("ollama")
+    if not ollama_bin:
+        logger.warning("RAG: Ollama not found in PATH — RagHook disabled")
+        return False
+
+    global _ollama_proc
+    logger.info("RAG: Ollama not running — starting '%s serve' ...", ollama_bin)
+    _ollama_proc = subprocess.Popen(
+        [ollama_bin, "serve"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    # Wait up to 10 s for Ollama to become reachable
+    for i in range(10):
+        await asyncio.sleep(1)
+        if embedder_cls(config).health_check():
+            logger.info("RAG: Ollama started (pid=%d, waited %ds)", _ollama_proc.pid, i + 1)
+            return True
+
+    logger.warning("RAG: Ollama did not start in time — RagHook disabled")
+    return False
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,12 +55,12 @@ async def lifespan(app: FastAPI):
     manager = get_mcp_manager()
     await manager.start_all()
 
-    # Check Ollama availability for RagHook
+    # Ensure Ollama is running, auto-starting it if needed
     from deepseek_chat.core.rag.config import load_rag_config
     from deepseek_chat.core.rag.embedder import OllamaEmbeddingClient
     from deepseek_chat.core.rag.store import get_stats
     _rag_config = load_rag_config()
-    if OllamaEmbeddingClient(_rag_config).health_check():
+    if await _ensure_ollama_running(OllamaEmbeddingClient, _rag_config):
         stats = get_stats(_rag_config.db_path)
         if stats["total"] > 0:
             logger.info("RAG: Ollama reachable, index has %d chunks — RagHook active", stats["total"])
@@ -52,6 +86,14 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
     await manager.stop_all()
+
+    if _ollama_proc is not None:
+        logger.info("RAG: stopping Ollama (pid=%d)", _ollama_proc.pid)
+        _ollama_proc.terminate()
+        try:
+            _ollama_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            _ollama_proc.kill()
 
 app = FastAPI(title="DeepSeek Web Chat", lifespan=lifespan)
 

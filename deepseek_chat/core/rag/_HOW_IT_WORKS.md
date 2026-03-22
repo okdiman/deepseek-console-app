@@ -52,12 +52,13 @@ deepseek_chat/agents/hooks/rag_hook.py  — RagHook (before_stream)
 
 ## Step 1 — Corpus
 
-`corpus.py` declares `CORPUS_FILES`: 18 documents (markdown articles + project source files).
+`corpus.py` declares `CORPUS_FILES`: 25 documents (markdown articles + project source files + internal docs).
 
 | Category | Files |
 |----------|-------|
 | External articles | PEP 8, RAG overview, Transformer architecture, LLMs, Python concurrency, FastAPI |
 | Project docs | README.md, CLAUDE.md |
+| Internal `_HOW_IT_WORKS.md` | agents, core, core/memory, core/mcp, core/rag, mcp_servers, mcp_servers/scheduler |
 | Project source | config.py, session.py, memory.py, task_state.py, base_agent.py, strategies.py, routes.py, streaming.py, scheduler_store.py, mcp_manager.py |
 
 Documents are downloaded once via `scripts/download_corpus.py` and stored in `docs/corpus/`.
@@ -159,7 +160,7 @@ If any check fails, the hook silently returns the unchanged system prompt. If Ol
 
 **Step 6a — Query enrichment**
 
-Short follow-up questions (≤12 words) are enriched with the current `DialogueTask` goal:
+Short follow-up questions (≤5 words) are enriched with the current `DialogueTask` goal:
 
 ```
 "зачем sqrt(d_k)?"
@@ -167,6 +168,8 @@ Short follow-up questions (≤12 words) are enriched with the current `DialogueT
 ```
 
 This improves retrieval for short contextual questions that lack enough keywords on their own. Long queries (>12 words) already carry enough context and are left unchanged.
+
+**Language guard:** Enrichment is skipped when the goal and the query are in different scripts (e.g. Cyrillic goal + Latin query). Mixing scripts in the embedding query degrades retrieval quality, so in that case the raw user query is used as-is.
 
 **Step 6b — Query rewriting (optional)**
 
@@ -206,12 +209,14 @@ The final chunks are saved to `self.last_chunks` for display in CLI tools.
 
 `assess_confidence()` looks at the **maximum cosine score** among the final chunks:
 
-| Level | Condition | LLM instruction |
-|-------|-----------|-----------------|
-| `empty` | No chunks passed the filter | "Say I don't know. Do not answer from general knowledge." |
-| `weak` | `max_score < RAG_IDK_THRESHOLD` (default: 0.45) | "Say I don't know. Mention what weak context was found." |
-| `uncertain` | `max_score < RAG_WEAK_CONTEXT_THRESHOLD` (default: 0.55) | "Answer from context only. Cite sources. Add confidence caveat." |
-| `confident` | `max_score ≥ 0.55` | "Answer from context only. Cite every claim with [N]. Add Sources block." |
+| Level | Condition | LLM instruction | MCP tools offered? |
+|-------|-----------|-----------------|-------------------|
+| `empty` | No chunks passed the filter | "Say I don't know. Do not answer from general knowledge." | Yes |
+| `weak` | `max_score < RAG_IDK_THRESHOLD` (default: 0.45) | "Say I don't know. Mention what weak context was found." | Yes |
+| `uncertain` | `max_score < RAG_WEAK_CONTEXT_THRESHOLD` (default: 0.55) | "Answer from context only. Cite sources. Add confidence caveat." | Yes |
+| `confident` | `max_score ≥ 0.55` | "Answer from context only. Cite every claim with [N]. Add Sources block." | **No** — `suppress_tools=True` |
+
+When `suppress_tools=True`, `BaseAgent` does not pass MCP tools to the LLM for that request. This gives the local index priority: external tools (deepwiki, search, etc.) are only offered when RAG could not find a confident answer locally.
 
 ### Citation block format
 

@@ -81,16 +81,15 @@ class TestFormatCitationBlock:
         assert block.confidence == ContextConfidence.EMPTY
         assert block.chunk_count == 0
         assert block.max_score == 0.0
-        assert "I don't have enough information" in block.formatted
         assert "RETRIEVED CONTEXT: none" in block.formatted
+        assert "Answer from your own knowledge or available tools" in block.formatted
 
     def test_weak_block_contains_idk_instruction(self):
         chunks = [_make_chunk(0.30)]
         block = format_citation_block(chunks, idk_threshold=0.45, weak_context_threshold=0.55)
         assert block.confidence == ContextConfidence.WEAK
         assert "LOW CONFIDENCE" in block.formatted
-        assert "I don't have enough information" in block.formatted
-        assert "Do NOT fabricate" in block.formatted
+        assert "Answer from your own knowledge or available tools" in block.formatted
 
     def test_uncertain_block_instruction(self):
         chunks = [_make_chunk(0.50)]

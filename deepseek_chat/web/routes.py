@@ -18,7 +18,7 @@ from .state import (
     get_task_machine,
 )
 from .cost_tracker import reset_session_cost_usd
-from ..core.memory import InvariantStore, MemoryStore, UserProfile
+from ..core.memory import DialogueTask, InvariantStore, MemoryStore, UserProfile
 from ..core.mcp import MCPServerConfig
 from .streaming import sse_response, stream_events
 from .views import render_index
@@ -51,6 +51,7 @@ async def clear(session_id: str = Query("default")) -> JSONResponse:
     if config.persist_context:
         session.save(config.context_path, config.provider, config.model)
     get_task_machine(session_id).reset()
+    DialogueTask().save()
     return JSONResponse({"ok": True})
 
 

@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List
 
 from .base import AgentHook
-from deepseek_chat.core.rag.citations import format_citation_block
+from deepseek_chat.core.rag.citations import format_citation_block, ContextConfidence
 from deepseek_chat.core.rag.config import load_rag_config
 from deepseek_chat.core.rag.embedder import OllamaEmbeddingClient
 from deepseek_chat.core.rag.query_rewriter import QueryRewriter
@@ -112,6 +112,8 @@ class RagHook(AgentHook):
         system_prompt: str,
         history: List[Dict[str, str]],
     ) -> str:
+        self.suppress_tools = False  # reset each call
+
         if not _RAG_ENABLED:
             return system_prompt
 
@@ -134,10 +136,16 @@ class RagHook(AgentHook):
             query = user_input
             try:
                 task = DialogueTask.load()
-                if task.goal and len(user_input.split()) <= 12:
-                    # Short follow-up questions benefit most from goal context
-                    query = f"{task.goal}: {user_input}"
-                    logger.debug("RagHook: enriched query with goal: %r", query[:80])
+                if task.goal and len(user_input.split()) <= 5:
+                    # Only enrich if goal and query are in the same script
+                    # (mixing Cyrillic goal with Latin query degrades embedding quality)
+                    goal_is_cyrillic = bool(sum(1 for c in task.goal if '\u0400' <= c <= '\u04ff') > len(task.goal) * 0.3)
+                    query_is_cyrillic = bool(sum(1 for c in user_input if '\u0400' <= c <= '\u04ff') > len(user_input) * 0.3)
+                    if goal_is_cyrillic == query_is_cyrillic:
+                        query = f"{task.goal}: {user_input}"
+                        logger.debug("RagHook: enriched query with goal: %r", query[:80])
+                    else:
+                        logger.debug("RagHook: skipping goal enrichment (language mismatch)")
             except Exception:
                 pass
 
@@ -186,10 +194,16 @@ class RagHook(AgentHook):
                     block.max_score,
                     block.chunk_count,
                 )
+                # Suppress MCP tools when RAG found relevant context — model should
+                # use the local index first; tools remain available only when context
+                # is empty or too weak to answer.
+                if block.confidence == ContextConfidence.CONFIDENT:
+                    self.suppress_tools = True
                 return system_prompt + block.formatted
             else:
                 if not results:
                     return system_prompt
+                self.suppress_tools = True
                 return system_prompt + _format_rag_block(results)
 
         except Exception as exc:

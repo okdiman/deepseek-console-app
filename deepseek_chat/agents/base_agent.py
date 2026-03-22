@@ -61,10 +61,13 @@ class BaseAgent:
         for hook in self._hooks:
             system_prompt = await hook.before_stream(self, user_input, system_prompt, history_messages)
 
-        # Load available MCP tools to optionally supply to the client
+        # Load available MCP tools to optionally supply to the client.
+        # If any hook found sufficient local context (e.g. RagHook with confident/uncertain
+        # results), suppress tools so the LLM uses the injected context first.
         mcp_manager = self._mcp_manager
         active_tools = mcp_manager.get_aggregated_tools() if mcp_manager is not None else []
-        tools_payload = active_tools if active_tools else None
+        rag_has_context = any(getattr(h, "suppress_tools", False) for h in self._hooks)
+        tools_payload = active_tools if (active_tools and not rag_has_context) else None
 
         # Re-build final request combining hooked prompt and user input
         history_messages[0] = {"role": "system", "content": system_prompt}

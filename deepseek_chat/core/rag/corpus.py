@@ -25,18 +25,30 @@ CORPUS_FILES: List[CorpusFile] = [
     # ── Project documentation (markdown) ──────────────────────────────────
     CorpusFile(_PROJECT_ROOT / "README.md",  "markdown", "Project README"),
     CorpusFile(_PROJECT_ROOT / "CLAUDE.md",  "markdown", "CLAUDE Architecture Guide"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "agents" / "_HOW_IT_WORKS.md",              "markdown", "Internals: Agent Pipeline & Hooks"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "agents" / "hooks" / "_HOW_IT_WORKS.md",    "markdown", "Internals: Hooks System"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "_HOW_IT_WORKS.md",                "markdown", "Internals: Core Package"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "memory" / "_HOW_IT_WORKS.md",     "markdown", "Internals: Memory & UserProfile"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "mcp" / "_HOW_IT_WORKS.md",        "markdown", "Internals: MCP Manager & Registry"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "rag" / "_HOW_IT_WORKS.md",        "markdown", "Internals: RAG Pipeline"),
+    CorpusFile(_PROJECT_ROOT / "mcp_servers" / "_HOW_IT_WORKS.md",                           "markdown", "Internals: MCP Servers"),
+    CorpusFile(_PROJECT_ROOT / "mcp_servers" / "scheduler" / "_HOW_IT_WORKS.md",             "markdown", "Internals: Scheduler"),
 
     # ── Project source code (python) ──────────────────────────────────────
     CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "config.py",           "python", "Core: config.py"),
     CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "session.py",          "python", "Core: session.py"),
-    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "memory.py",           "python", "Core: memory.py"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "memory" / "store.py",    "python", "Core: memory/store.py"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "memory" / "profile.py",  "python", "Core: memory/profile.py"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "memory" / "invariants.py", "python", "Core: memory/invariants.py"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "memory" / "dialogue.py", "python", "Core: memory/dialogue.py"),
     CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "task_state.py",       "python", "Core: task_state.py"),
     CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "agents" / "base_agent.py",     "python", "Agent: base_agent.py"),
     CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "agents" / "strategies.py",     "python", "Agent: strategies.py"),
     CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "web" / "routes.py",            "python", "Web: routes.py"),
     CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "web" / "streaming.py",         "python", "Web: streaming.py"),
     CorpusFile(_PROJECT_ROOT / "mcp_servers" / "scheduler" / "scheduler_store.py", "python", "Scheduler: store.py"),
-    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "mcp_manager.py",        "python", "Core: mcp_manager.py"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "mcp" / "manager.py",   "python", "Core: mcp/manager.py"),
+    CorpusFile(_PROJECT_ROOT / "deepseek_chat" / "core" / "mcp" / "registry.py",  "python", "Core: mcp/registry.py"),
 ]
 
 

@@ -135,9 +135,13 @@ After compression, `get_system_message_for_response()` yields a visible `[System
 
 Default implementations: `intercept_stream` returns `None`; `before_stream` returns `system_prompt` unchanged; `after_stream` is a no-op.
 
+**`suppress_tools: bool`** — class-level attribute (default `False`). A hook can set this to `True` during `before_stream` to signal that it has found sufficient local context. `BaseAgent` checks this flag after all hooks run and omits MCP tools from the LLM call if any hook raised it. Must be reset to `False` at the start of each `before_stream` call.
+
 ---
 
 ## Hooks Reference
+
+Seven concrete hooks are available. Each inherits `AgentHook` from `hooks/base.py` and implements `before_stream` and/or `after_stream`. See `hooks/_HOW_IT_WORKS.md` for full internals of each hook.
 
 ### MemoryInjectionHook
 
@@ -195,7 +199,7 @@ See `deepseek_chat/core/dialogue_task.py` for the `DialogueTask` data model.
 
 ### RagHook
 
-**Purpose:** Retrieval-Augmented Generation — retrieves relevant document chunks from the local index and injects them (with citation instructions) into the system prompt before each LLM call.
+**Purpose:** Retrieval-Augmented Generation — retrieves relevant document chunks from the local index and injects them (with citation instructions) into the system prompt before each LLM call. RAG has priority over MCP tools: when the local index returns confident results, MCP tools are not offered to the LLM at all.
 
 **How:** Runs a 6-step pipeline in `before_stream`:
 1. Enrich short queries (≤12 words) with the current DialogueTask goal
@@ -203,9 +207,18 @@ See `deepseek_chat/core/dialogue_task.py` for the `DialogueTask` data model.
 3. Embed query → Ollama (`nomic-embed-text`)
 4. Fetch `RAG_PRE_RERANK_TOP_K` candidates from SQLite index
 5. Rerank/filter to `RAG_TOP_K` chunks
-6. Format citation block with confidence-level instructions
+6. Format citation block with confidence-level instructions; set `suppress_tools=True` if confidence is `CONFIDENT`
 
-Degrades gracefully: if Ollama is unreachable or the index is empty, returns system prompt unchanged.
+**Tool suppression:** After `before_stream` hooks run, `BaseAgent` checks whether any hook has `suppress_tools=True`. If so, MCP tools are not passed to the LLM for this request — the model is forced to answer from the injected context. This ensures the local index is always consulted first; external tools are only available when RAG found nothing useful.
+
+| RAG confidence | MCP tools offered to LLM |
+|----------------|--------------------------|
+| `CONFIDENT` | No — suppress_tools=True |
+| `UNCERTAIN` | Yes — context is partial, tools may help |
+| `WEAK` | Yes — context too weak to rely on |
+| `EMPTY` | Yes — nothing found locally |
+
+Degrades gracefully: if Ollama is unreachable or the index is empty, `suppress_tools` stays `False` and tools are offered normally.
 
 Exposes `self.last_chunks` for CLI display of retrieved sources.
 

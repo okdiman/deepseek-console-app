@@ -116,38 +116,27 @@ def format_citation_block(
 def _empty_block() -> str:
     return (
         "\n---\n"
-        "RETRIEVED CONTEXT: none (no relevant documents found in the index).\n"
-        "\n"
-        "INSTRUCTION: The knowledge base contains no relevant information for this query.\n"
-        'You MUST respond with: "I don\'t have enough information to answer this question."\n'
-        "Then ask the user to clarify or provide more context.\n"
-        "Do NOT answer from general knowledge when RAG context is empty.\n"
+        "RETRIEVED CONTEXT: none (no relevant documents found in the local index).\n"
+        "Answer from your own knowledge or available tools as appropriate.\n"
         "---"
     )
 
 
 def _weak_instruction_lines() -> List[str]:
     return [
-        "INSTRUCTION (LOW CONFIDENCE — max similarity below threshold):",
-        "The retrieved context is not sufficiently relevant to answer this question reliably.",
-        "You MUST:",
-        '  1. Say "I don\'t have enough information to answer this question confidently."',
-        "  2. Briefly mention what context was found, citing [N] source numbers.",
-        "  3. Ask the user to clarify or rephrase their question.",
-        "Do NOT fabricate an answer from the weak context above.",
+        "INSTRUCTION (LOW CONFIDENCE — retrieved context is not relevant to this query):",
+        "The local index did not find useful information. Use the context above only if directly relevant.",
+        "Answer from your own knowledge or available tools as appropriate.",
         "",
     ]
 
 
 def _uncertain_instruction_lines() -> List[str]:
     return [
-        "INSTRUCTION (MODERATE CONFIDENCE):",
-        "The retrieved context is partially relevant. You MUST:",
-        "  1. Answer based ONLY on the context provided above.",
-        '  2. Cite every claim with [N] (e.g. "According to [1]...").',
-        "  3. Include at least one direct quote per cited source (copy exact text in quotes).",
-        '  4. End with: "Note: context confidence is moderate — verify if precision matters."',
-        "  5. Do NOT add information not present in the context.",
+        "INSTRUCTION (MODERATE CONFIDENCE — context is partially relevant):",
+        "  1. Use the context above where relevant, citing claims with [N].",
+        "  2. Supplement with your own knowledge or tools where the context is insufficient.",
+        '  3. End with: "Note: context confidence is moderate — verify if precision matters."',
         "",
     ]
 

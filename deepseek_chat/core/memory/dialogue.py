@@ -79,6 +79,7 @@ class DialogueTask:
             "  WHEN: ALWAYS on your FIRST response if the user's intent is clear.\n"
             "  CRITICAL: set based on what the USER ASKS, NOT on what you can answer.\n"
             "  Even if you have no context and must say IDK — still emit [GOAL:].\n"
+            "  LANGUAGE: always write the goal in ENGLISH regardless of the user's language.\n"
             "  Example: user asks 'explain attention mechanism' → [GOAL: understand attention mechanism]\n"
             "  Update only if the goal genuinely shifts in a later turn.\n\n"
             "[CLARIFIED: <text>]\n"

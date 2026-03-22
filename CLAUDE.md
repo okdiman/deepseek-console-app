@@ -15,6 +15,7 @@ Each major package has a `_HOW_IT_WORKS.md` that explains its internals in detai
 | File | Covers |
 |------|--------|
 | `deepseek_chat/agents/_HOW_IT_WORKS.md` | Agent pipeline, BaseAgent lifecycle, all hooks, concrete agents, hook execution order |
+| `deepseek_chat/agents/hooks/_HOW_IT_WORKS.md` | AgentHook interface, all concrete hooks internals, suppress_tools, execution order |
 | `deepseek_chat/core/_HOW_IT_WORKS.md` | Config, DeepSeekClient, ChatSession, TaskStateMachine, agent_factory, paths, stream_printer |
 | `deepseek_chat/core/memory/_HOW_IT_WORKS.md` | MemoryStore, UserProfile, InvariantStore, DialogueTask — persistence and prompt injection patterns |
 | `deepseek_chat/core/mcp/_HOW_IT_WORKS.md` | MCPManager subprocess lifecycle, MCPRegistry, tool routing, tool call flow |

@@ -30,6 +30,7 @@ class MCPManager:
         self._aggregated_tools: List[Dict[str, Any]] = []
         self._tool_routes: Dict[str, str] = {}
         self._original_tool_names: Dict[str, str] = {}
+        self._refresh_lock = asyncio.Lock()
 
     async def start_all(self) -> None:
         """Start all enabled servers in the registry."""
@@ -183,6 +184,11 @@ class MCPManager:
 
     async def _refresh_tools(self) -> None:
         """Query all active sessions and rebuild the aggregated tool list."""
+        async with self._refresh_lock:
+            await self._refresh_tools_locked()
+
+    async def _refresh_tools_locked(self) -> None:
+        """Inner implementation — must be called with _refresh_lock held."""
         self._aggregated_tools = []
         self._tool_routes = {}
         self._original_tool_names = {}

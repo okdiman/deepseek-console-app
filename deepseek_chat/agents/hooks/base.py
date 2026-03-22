@@ -14,7 +14,13 @@ class AgentHook(ABC):
     """
     Interface for an Agent Hook (Middleware) that can intercept and side-effect
     during the LLM response stream lifecycle.
+
+    suppress_tools: if set to True after before_stream, the agent will not pass
+    MCP tools to the LLM for this request. Use this when the hook provides
+    sufficient local context and external tools should not be offered.
     """
+
+    suppress_tools: bool = False
 
     async def intercept_stream(
         self, agent: "BaseAgent", user_input: str, history: List[Dict[str, str]]
