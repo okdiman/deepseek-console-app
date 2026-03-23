@@ -2,11 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Before pushing
+## Documentation update — MANDATORY after every change
 
-After implementing any feature or fix, check whether `CLAUDE.md` needs to be updated (new env vars, architectural changes, new patterns, changed commands). Update it before pushing.
+**This is not optional.** After implementing any feature or fix, you MUST update docs before finishing. Do it in this order:
 
-If the change touches a package that has a `_HOW_IT_WORKS.md`, update that file too — it is the detailed reference for that package and must stay in sync with the code.
+1. **`_HOW_IT_WORKS.md` for every touched package** — if you changed a file inside a package that has a `_HOW_IT_WORKS.md`, update that file. Check the table below to find the right one. Concretely: changed a default value → update the config table; changed a function's behavior → update the description; added a new concept → add a section.
+
+2. **`CLAUDE.md`** — update if: new env vars were added, architecture changed, new patterns introduced, commands changed, new files added to the persistent state table.
+
+**How to know which `_HOW_IT_WORKS.md` to update:** look at every file you edited, find its package in the table below, update that package's doc. If you edited files in 3 packages, update 3 docs.
+
+**Common mistakes to avoid:**
+- Changing a default value in code but leaving the old value in the docs
+- Adding a new function/hook/endpoint but not describing it anywhere
+- Finishing the task and only then remembering about docs — update them as the last step, not as an afterthought
 
 ## Package documentation (_HOW_IT_WORKS.md)
 
@@ -186,10 +195,20 @@ Persistence file formats:
 ### Web Layer (`web/`)
 
 - `app.py` — FastAPI app; lifespan starts MCP servers and scheduler runner
-- `routes.py` — all HTTP/SSE endpoints
+- `routes.py` — all HTTP/SSE endpoints; includes `GET /config/provider` and `POST /config/provider` for runtime switching
 - `streaming.py` — SSE generator with task marker parsing; `_collect_task_markers` and `_apply_task_markers` are pure functions (testable without HTTP context)
-- `state.py` — singletons for config, client, sessions, task machines, MCP; `get_agent()` factory
+- `state.py` — singletons for config, client, sessions, task machines, MCP; `get_agent()` factory; `set_provider(provider)` for runtime provider switching
 - Frontend: vanilla JS (`static/app.js`, ~48KB) + CSS; no build step needed
+
+### Provider Switching (Day 26)
+
+`set_provider(provider)` in `web/state.py` switches the active LLM at runtime without restart:
+- `"ollama"` — routes to local Ollama (`http://localhost:11434/v1/chat/completions`, model `qwen2.5:7b`, no API key, price=0)
+- `"deepseek"` or `"groq"` — restores the startup config (read from env at boot)
+
+UI toggle in the chat input bar (DeepSeek ↔ Ollama buttons) calls `POST /config/provider`. The toolbar badge and textarea placeholder update to reflect the active provider.
+
+`client.py` skips `response_format` for Ollama (not universally supported). DeepSeek-specific fields (`frequency_penalty`, `presence_penalty`, `thinking`) are already omitted for non-deepseek providers.
 
 ### RAG — Document Indexing (`core/rag/`)
 

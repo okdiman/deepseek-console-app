@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+import aiohttp
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
@@ -16,6 +17,7 @@ from .state import (
     get_mcp_registry,
     get_session,
     get_task_machine,
+    set_provider,
 )
 from .cost_tracker import reset_session_cost_usd
 from ..core.memory import DialogueTask, InvariantStore, MemoryStore, UserProfile
@@ -38,10 +40,50 @@ async def index(request: Request) -> HTMLResponse:
     return HTMLResponse(render_index(request))
 
 
+# ── Provider switching ────────────────────────────────────
+
+class ProviderRequest(BaseModel):
+    provider: str
+
+
+@router.get("/config/provider")
+async def get_provider(session_id: str = Query("default")) -> JSONResponse:
+    config = get_config(session_id)
+    return JSONResponse({"provider": config.provider, "model": config.model})
+
+
+async def _check_ollama_reachable() -> bool:
+    try:
+        timeout = aiohttp.ClientTimeout(total=2)
+        async with aiohttp.ClientSession() as session:
+            async with session.get("http://localhost:11434/api/tags", timeout=timeout) as resp:
+                return resp.status == 200
+    except Exception:
+        return False
+
+
+@router.post("/config/provider")
+async def switch_provider(
+    payload: ProviderRequest, session_id: str = Query("default")
+) -> JSONResponse:
+    if payload.provider == "ollama" and not await _check_ollama_reachable():
+        return JSONResponse(
+            {"ok": False, "error": "Ollama недоступна. Запустите: ollama serve"},
+            status_code=503,
+        )
+    try:
+        set_provider(payload.provider, session_id)
+        reset_session_cost_usd()
+        config = get_config(session_id)
+        return JSONResponse({"ok": True, "provider": config.provider, "model": config.model})
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
 @router.post("/clear")
 async def clear(session_id: str = Query("default")) -> JSONResponse:
     session = get_session(session_id)
-    config = get_config()
+    config = get_config(session_id)
     session.clear()
     reset_session_cost_usd()
     # Clear working memory (session-scoped), keep long-term memory

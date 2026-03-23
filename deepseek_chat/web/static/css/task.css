@@ -290,3 +290,51 @@
     opacity: 0.7;
     font-family: var(--font-mono, monospace);
 }
+/* ── Provider toggle (capsule-bottom) ─────────────────── */
+.provider-toggle {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 2px;
+}
+
+.provider-btn {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.01em;
+}
+
+.provider-btn:hover {
+    color: var(--text-primary);
+}
+
+.provider-btn.active {
+    background: rgba(99, 179, 237, 0.18);
+    color: #63b3ed;
+}
+
+/* ── Provider badge in toolbar h1 ─────────────────────── */
+.provider-badge {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 2px 10px;
+    border-radius: 12px;
+    background: rgba(99, 179, 237, 0.15);
+    color: #63b3ed;
+    margin-left: 8px;
+    vertical-align: middle;
+    transition: background 0.2s, color 0.2s;
+}
+
+.provider-badge.ollama {
+    background: rgba(104, 211, 145, 0.15);
+    color: #68d391;
+}

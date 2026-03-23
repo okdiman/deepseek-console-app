@@ -63,6 +63,8 @@ class DeepSeekClient:
             
         if payload["top_p"] is None:
             del payload["top_p"]
+        if payload["stop"] is None:
+            del payload["stop"]
         if self._config.provider == "deepseek":
             payload.update(
                 {
@@ -71,6 +73,9 @@ class DeepSeekClient:
                     "thinking": params.thinking,
                 }
             )
+        if self._config.provider == "ollama":
+            # Ollama does not support response_format in all model/version combinations
+            payload.pop("response_format", None)
 
         start_time = perf_counter()
         usage: Optional[dict] = None

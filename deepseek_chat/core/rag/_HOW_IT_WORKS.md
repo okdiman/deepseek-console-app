@@ -97,12 +97,14 @@ Each `Chunk` carries:
 
 `embedder.py` wraps the Ollama embedding API.
 
-- Model: **nomic-embed-text** (768-dimensional vectors)
+- Model: **qwen3-embedding:0.6b** (1024-dimensional vectors)
 - Endpoint: `POST http://localhost:11434/api/embed`
 - Batching: chunks are embedded in configurable batch sizes
 - `health_check()` pings Ollama before the first use; returns `False` if unreachable
 
 Embeddings are stored alongside chunk text in SQLite so re-embedding is only needed on corpus changes.
+
+> **Note:** If the embedding model is changed (e.g. different dimension), delete `data/rag_index.db` and re-run `cli.py index` — the index schema is dimension-specific and silently produces garbage scores if mismatched.
 
 ---
 
@@ -179,7 +181,7 @@ Alternatively, `QueryRewriter.clean()` strips conversational filler ("can you te
 
 **Step 6c — Embed**
 
-The (possibly enriched/rewritten) query is embedded via Ollama → 768-dim vector.
+The (possibly enriched/rewritten) query is embedded via Ollama → 1024-dim vector (qwen3-embedding:0.6b).
 
 **Step 6d — Fetch candidates**
 
@@ -263,8 +265,8 @@ All settings are env vars (copy `.env.example` to `.env`):
 | `RAG_FIXED_CHUNK_SIZE` | `400` | Tokens per chunk (FixedSizeChunker) |
 | `RAG_FIXED_CHUNK_OVERLAP` | `50` | Overlap tokens between chunks |
 | `RAG_OLLAMA_URL` | `http://localhost:11434` | Ollama base URL |
-| `RAG_OLLAMA_MODEL` | `nomic-embed-text` | Embedding model |
-| `RAG_EMBEDDING_DIM` | `768` | Vector dimension |
+| `RAG_OLLAMA_MODEL` | `qwen3-embedding:0.6b` | Embedding model |
+| `RAG_EMBEDDING_DIM` | `1024` | Vector dimension |
 | `RAG_DB_PATH` | `experiments/rag_compare/data/doc_index.db` | SQLite index path |
 
 ---
@@ -298,7 +300,7 @@ The LLM always gets a coherent system prompt regardless of RAG availability.
 
 ```bash
 # 1. Start Ollama with the embedding model
-ollama pull nomic-embed-text
+ollama pull qwen3-embedding:0.6b
 ollama serve
 
 # 2. Download corpus documents (run once)

@@ -12,19 +12,34 @@ from ..core.session import ChatSession
 from ..core.task_state import TaskStateMachine
 from ..core.mcp import MCPRegistry, MCPManager
 
-_config: ClientConfig = load_config()
+_startup_config: ClientConfig = load_config()
 
 _web_context_path = os.getenv("DEEPSEEK_WEB_CONTEXT_PATH", "").strip()
 if _web_context_path:
-    _config = dataclasses.replace(_config, context_path=os.path.expanduser(_web_context_path))
+    _startup_config = dataclasses.replace(
+        _startup_config, context_path=os.path.expanduser(_web_context_path)
+    )
 
-_client = DeepSeekClient(_config)
+_OLLAMA_DEFAULTS = {
+    "provider": "ollama",
+    "api_key": "ollama",
+    "api_url": "http://localhost:11434/v1/chat/completions",
+    "models_url": "",
+    "model": "qwen2.5:7b",
+    "price_per_1k_prompt_usd": 0.0,
+    "price_per_1k_completion_usd": 0.0,
+}
+
+# Per-session provider configs and cached clients.
+# New sessions inherit the config of the "default" session at creation time.
+_session_configs: Dict[str, ClientConfig] = {"default": _startup_config}
+_session_clients: Dict[str, DeepSeekClient] = {"default": DeepSeekClient(_startup_config)}
 
 _mcp_registry = MCPRegistry.load()
 _mcp_manager = MCPManager(_mcp_registry)
 
 _sessions: Dict[str, ChatSession] = {
-    "default": ChatSession(max_messages=_config.context_max_messages)
+    "default": ChatSession(max_messages=_startup_config.context_max_messages)
 }
 _active_strategy: str = "default"
 
@@ -35,29 +50,50 @@ _AGENT_REGISTRY = {
     "general": "General Agent",
 }
 
+_DEFAULT_AGENT_ID = "general"
+
+if _startup_config.persist_context:
+    _sessions["default"].load(_startup_config.context_path)
+
+
+def get_config(session_id: str = "default") -> ClientConfig:
+    return _session_configs.get(session_id, _startup_config)
+
+
+def get_client(session_id: str = "default") -> DeepSeekClient:
+    if session_id not in _session_clients:
+        _session_clients[session_id] = DeepSeekClient(get_config(session_id))
+    return _session_clients[session_id]
+
+
+def set_provider(provider: str, session_id: str = "default") -> None:
+    """Switch the LLM provider for a session. New sessions inherit from 'default'."""
+    if provider == "ollama":
+        new_config = dataclasses.replace(_startup_config, **_OLLAMA_DEFAULTS)
+    elif provider == _startup_config.provider:
+        new_config = _startup_config
+    else:
+        raise ValueError(f"Unknown provider '{provider}'. Supported: 'ollama', '{_startup_config.provider}'")
+    _session_configs[session_id] = new_config
+    _session_clients[session_id] = DeepSeekClient(new_config)
+
+
 def get_agent(agent_id: str, session_id: str = "default") -> PythonAgent | GeneralAgent:
     session = get_session(session_id)
     task_machine = get_task_machine(session_id)
+    client = get_client(session_id)
     if agent_id == "python":
-        return PythonAgent(_client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
-    return GeneralAgent(_client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
-
-_DEFAULT_AGENT_ID = "general"
-
-if _config.persist_context:
-    _sessions["default"].load(_config.context_path)
-
-def get_config() -> ClientConfig:
-    return _config
-
-
-def get_client() -> DeepSeekClient:
-    return _client
+        return PythonAgent(client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
+    return GeneralAgent(client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
 
 
 def get_session(session_id: str = "default") -> ChatSession:
     if session_id not in _sessions:
-        _sessions[session_id] = ChatSession(max_messages=_config.context_max_messages)
+        # Inherit provider config from the default session
+        inherited = _session_configs.get("default", _startup_config)
+        _session_configs[session_id] = inherited
+        _session_clients[session_id] = DeepSeekClient(inherited)
+        _sessions[session_id] = ChatSession(max_messages=inherited.context_max_messages)
     return _sessions[session_id]
 
 def get_all_sessions() -> Dict[str, ChatSession]:
@@ -68,9 +104,10 @@ def create_branch(parent_id: str, message_index: int, new_branch_id: str) -> Non
     _sessions[new_branch_id] = parent_session.clone(up_to_index=message_index)
 
 def delete_session(session_id: str) -> None:
-    if session_id in _sessions:
-        del _sessions[session_id]
+    _sessions.pop(session_id, None)
     _task_machines.pop(session_id, None)
+    _session_configs.pop(session_id, None)
+    _session_clients.pop(session_id, None)
 
 def get_task_machine(session_id: str = "default") -> TaskStateMachine:
     if session_id not in _task_machines:

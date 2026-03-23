@@ -27,7 +27,7 @@
     </div>
     <div class="container main-content">
       <div class="toolbar">
-        <h1>DeepSeek Web Chat (Streaming)</h1>
+        <h1>AI Web Chat <span id="providerBadge" class="provider-badge">DeepSeek</span></h1>
         <div class="toolbar-actions">
           <button id="profileBtn" type="button" class="icon-btn" title="Profile">👤</button>
           <button id="memoryBtn" type="button" class="icon-btn" title="Memory">🧠</button>
@@ -74,6 +74,10 @@
               <div class="mode-toggle">
                 <button type="button" id="modeChatBtn" class="mode-btn active">Chat</button>
                 <button type="button" id="modeAgentBtn" class="mode-btn">Agent</button>
+              </div>
+              <div class="provider-toggle">
+                <button type="button" id="providerDeepseekBtn" class="provider-btn active">DeepSeek</button>
+                <button type="button" id="providerOllamaBtn" class="provider-btn">Ollama</button>
               </div>
               <div class="capsule-actions">
                 <button id="stopBtn" type="button" class="action-btn stop" title="Stop" style="display:none;">

@@ -133,9 +133,9 @@ async def stream_events(
 ) -> AsyncGenerator[str, None]:
     from ..core.task_state import TaskPhase
 
-    config = get_config()
+    config = get_config(session_id)
     session = get_session(session_id)
-    client = get_client()
+    client = get_client(session_id)
     selected_agent = get_agent(agent_id, session_id=session_id)
     tm = get_task_machine(session_id)
 

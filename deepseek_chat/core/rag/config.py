@@ -16,8 +16,8 @@ class RagConfig:
 
     # Ollama embeddings
     ollama_url: str             # e.g. http://localhost:11434
-    ollama_model: str           # e.g. nomic-embed-text
-    embedding_dim: int          # vector dimension (768 for nomic-embed-text)
+    ollama_model: str           # e.g. qwen3-embedding:0.6b
+    embedding_dim: int          # vector dimension (1024 for qwen3-embedding:0.6b)
 
     # Storage
     db_path: str                # path to SQLite index file
@@ -42,8 +42,8 @@ def load_rag_config() -> RagConfig:
         fixed_chunk_size=int(os.getenv("RAG_FIXED_CHUNK_SIZE", "400")),
         fixed_chunk_overlap=int(os.getenv("RAG_FIXED_CHUNK_OVERLAP", "50")),
         ollama_url=os.getenv("RAG_OLLAMA_URL", "http://localhost:11434"),
-        ollama_model=os.getenv("RAG_OLLAMA_MODEL", "nomic-embed-text"),
-        embedding_dim=int(os.getenv("RAG_EMBEDDING_DIM", "768")),
+        ollama_model=os.getenv("RAG_OLLAMA_MODEL", "qwen3-embedding:0.6b"),
+        embedding_dim=int(os.getenv("RAG_EMBEDDING_DIM", "1024")),
         db_path=os.getenv("RAG_DB_PATH", _DEFAULT_DB),
         pre_rerank_top_k=int(os.getenv("RAG_PRE_RERANK_TOP_K", "10")),
         reranker_type=os.getenv("RAG_RERANKER_TYPE", "threshold"),

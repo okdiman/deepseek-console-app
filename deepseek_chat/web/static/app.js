@@ -86,6 +86,63 @@ document.addEventListener("DOMContentLoaded", () => {
   const stopBtn = document.getElementById("stopBtn");
   const submitBtn = document.getElementById("submitBtn");
 
+  // Provider toggle elements
+  const providerDeepseekBtn = document.getElementById("providerDeepseekBtn");
+  const providerOllamaBtn = document.getElementById("providerOllamaBtn");
+  const providerBadge = document.getElementById("providerBadge");
+
+  let currentProvider = "deepseek";
+
+  function updateProviderUI(provider, model) {
+    currentProvider = provider;
+    const isOllama = provider === "ollama";
+    providerDeepseekBtn.classList.toggle("active", !isOllama);
+    providerOllamaBtn.classList.toggle("active", isOllama);
+    providerBadge.textContent = isOllama ? `Ollama / ${model}` : `DeepSeek / ${model}`;
+    providerBadge.classList.toggle("ollama", isOllama);
+    messageInput.placeholder = isOllama ? "Message Ollama..." : "Message DeepSeek...";
+  }
+
+  async function initProvider() {
+    try {
+      const sid = currentSessionId || "default";
+      const res = await fetch(`/config/provider?session_id=${encodeURIComponent(sid)}`);
+      const data = await res.json();
+      updateProviderUI(data.provider, data.model);
+    } catch (e) { /* silently skip if backend unreachable */ }
+  }
+
+  async function switchProvider(provider) {
+    try {
+      const sid = currentSessionId || "default";
+      const res = await fetch(`/config/provider?session_id=${encodeURIComponent(sid)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        updateProviderUI(data.provider, data.model);
+        statusEl.textContent = "";
+      } else {
+        statusEl.textContent = data.error || "Provider switch failed";
+        setTimeout(() => { statusEl.textContent = ""; }, 5000);
+      }
+    } catch (e) {
+      statusEl.textContent = "Provider switch failed: " + e.message;
+      setTimeout(() => { statusEl.textContent = ""; }, 5000);
+    }
+  }
+
+  if (providerDeepseekBtn) {
+    providerDeepseekBtn.addEventListener("click", () => switchProvider("deepseek"));
+  }
+  if (providerOllamaBtn) {
+    providerOllamaBtn.addEventListener("click", () => switchProvider("ollama"));
+  }
+
+  initProvider();
+
   let currentSource = null;
 
   let customSettings = {
@@ -661,6 +718,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Array.from(sessionListEl.children).forEach(child => child.classList.remove("active"));
             item.classList.add("active");
             await loadHistory(s.id);
+            await initProvider();
           });
 
           sessionListEl.appendChild(item);

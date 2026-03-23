@@ -28,7 +28,7 @@ deepseek_chat/core/
 
 `load_config()` reads the `.env` file and returns a frozen `ClientConfig`.
 
-Supports two providers selected via `PROVIDER=deepseek|groq`:
+Supports two providers selected via `PROVIDER=deepseek|groq` at startup:
 
 | Setting | DeepSeek env var | Groq env var | Default |
 |---------|-----------------|--------------|---------|
@@ -36,6 +36,8 @@ Supports two providers selected via `PROVIDER=deepseek|groq`:
 | Model | `DEEPSEEK_API_MODEL` | `GROQ_API_MODEL` | deepseek-chat / kimi-k2 |
 | Max tokens | `DEEPSEEK_API_MAX_TOKENS` | `GROQ_API_MAX_TOKENS` | 4000 |
 | Timeout | `DEEPSEEK_API_TIMEOUT_SECONDS` | `GROQ_API_TIMEOUT_SECONDS` | 60s |
+
+**Runtime provider switching:** `web/state.py` exposes `set_provider(provider, session_id)` which switches the LLM provider per session without restart. Supported values: `"ollama"` (routes to local Ollama at `http://localhost:11434/v1/chat/completions`, model `qwen2.5:7b`, no API key) or the startup provider (`"deepseek"` / `"groq"`). Each session has its own `ClientConfig` and `DeepSeekClient` stored in `_session_configs` / `_session_clients` dicts. New sessions inherit the config of the `"default"` session at creation time. The API endpoint is `POST /config/provider?session_id=...`.
 
 Additional settings (provider-agnostic):
 
@@ -71,6 +73,12 @@ Sends a POST request with `"stream": true` and yields response chunks as strings
 ```
 
 Tool call arguments are accumulated across chunks (streamed by the API) before being yielded as a complete payload.
+
+### Provider-specific payload handling
+
+- `deepseek` — adds `frequency_penalty`, `presence_penalty`, `thinking` to the payload
+- `ollama` — removes `response_format` (not universally supported across Ollama model versions)
+- `groq` — no extra fields; standard OpenAI-compatible payload
 
 ### Error handling
 
