@@ -200,9 +200,11 @@ Persistence file formats:
 - `state.py` — singletons for config, client, sessions, task machines, MCP; `get_agent()` factory; `set_provider(provider)` for runtime provider switching
 - Frontend: vanilla JS (`static/app.js`, ~48KB) + CSS; no build step needed
 
-### Provider Switching (Day 26)
+### Provider Switching (Day 26–27)
 
-`set_provider(provider)` in `web/state.py` switches the active LLM at runtime without restart:
+`PROVIDER=ollama` in `.env` starts the app **fully locally** — no cloud API key required. All three frontends (web, console, rag_chat) work without modification.
+
+`set_provider(provider)` in `web/state.py` also switches the active LLM at runtime without restart:
 - `"ollama"` — routes to local Ollama (`http://localhost:11434/v1/chat/completions`, model `qwen2.5:7b`, no API key, price=0)
 - `"deepseek"` or `"groq"` — restores the startup config (read from env at boot)
 
@@ -261,6 +263,15 @@ DEEPSEEK_API_MAX_TOKENS=4000              # default
 DEEPSEEK_API_TIMEOUT_SECONDS=60          # default
 DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
 DEEPSEEK_MODELS_URL=...                   # optional, enables /models endpoint
+```
+
+**Ollama (local, no API key):**
+```dotenv
+PROVIDER=ollama
+OLLAMA_URL=http://localhost:11434   # default
+OLLAMA_MODEL=qwen2.5:7b            # default; any model pulled via `ollama pull`
+OLLAMA_MAX_TOKENS=4000             # default
+OLLAMA_TIMEOUT_SECONDS=120         # default (local inference is slower)
 ```
 
 **Groq:**

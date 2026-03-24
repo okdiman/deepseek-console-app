@@ -38,6 +38,29 @@ class TestGroqDefaults:
         assert "groq.com" in config.api_url
 
 
+class TestOllamaProvider:
+    def test_ollama_provider_no_api_key_needed(self, monkeypatch):
+        monkeypatch.setenv("PROVIDER", "ollama")
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+        monkeypatch.setattr("deepseek_chat.core.config.load_dotenv", lambda: None)
+        config = load_config()
+        assert config.provider == "ollama"
+        assert config.api_key == "ollama"
+        assert "localhost:11434" in config.api_url
+        assert config.price_per_1k_prompt_usd == 0.0
+        assert config.price_per_1k_completion_usd == 0.0
+
+    def test_ollama_custom_url_and_model(self, monkeypatch):
+        monkeypatch.setenv("PROVIDER", "ollama")
+        monkeypatch.setenv("OLLAMA_URL", "http://192.168.1.10:11434")
+        monkeypatch.setenv("OLLAMA_MODEL", "llama3.2:3b")
+        monkeypatch.setattr("deepseek_chat.core.config.load_dotenv", lambda: None)
+        config = load_config()
+        assert config.model == "llama3.2:3b"
+        assert "192.168.1.10:11434" in config.api_url
+
+
 class TestMissingApiKey:
     def test_deepseek_missing_key(self, monkeypatch):
         monkeypatch.setenv("PROVIDER", "deepseek")

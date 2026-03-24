@@ -48,11 +48,21 @@ def load_config() -> ClientConfig:
     load_dotenv()
 
     provider = os.getenv("PROVIDER", "deepseek").strip().lower()
-    if provider not in ["deepseek", "groq"]:
-        print("Error: PROVIDER must be 'deepseek' or 'groq'!")
+    if provider not in ["deepseek", "groq", "ollama"]:
+        print("Error: PROVIDER must be 'deepseek', 'groq', or 'ollama'!")
         sys.exit(1)
 
-    if provider == "groq":
+    if provider == "ollama":
+        ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        api_url = f"{ollama_url}/v1/chat/completions"
+        model = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+        max_tokens = int(os.getenv("OLLAMA_MAX_TOKENS", "4000"))
+        read_timeout = int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
+        api_key = "ollama"
+        models_url = f"{ollama_url}/v1/models"
+        price_prompt = 0.0
+        price_completion = 0.0
+    elif provider == "groq":
         api_key = os.getenv("GROQ_API_KEY", "")
         if not api_key:
             print("Error: GROQ_API_KEY not found!")

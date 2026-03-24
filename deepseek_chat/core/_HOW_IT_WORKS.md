@@ -28,16 +28,19 @@ deepseek_chat/core/
 
 `load_config()` reads the `.env` file and returns a frozen `ClientConfig`.
 
-Supports two providers selected via `PROVIDER=deepseek|groq` at startup:
+Supports three providers selected via `PROVIDER=deepseek|groq|ollama` at startup:
 
-| Setting | DeepSeek env var | Groq env var | Default |
-|---------|-----------------|--------------|---------|
-| API key | `DEEPSEEK_API_KEY` | `GROQ_API_KEY` | — |
-| Model | `DEEPSEEK_API_MODEL` | `GROQ_API_MODEL` | deepseek-chat / kimi-k2 |
-| Max tokens | `DEEPSEEK_API_MAX_TOKENS` | `GROQ_API_MAX_TOKENS` | 4000 |
-| Timeout | `DEEPSEEK_API_TIMEOUT_SECONDS` | `GROQ_API_TIMEOUT_SECONDS` | 60s |
+| Setting | DeepSeek env var | Groq env var | Ollama env var | Default |
+|---------|-----------------|--------------|----------------|---------|
+| API key | `DEEPSEEK_API_KEY` | `GROQ_API_KEY` | *(none required)* | — |
+| Model | `DEEPSEEK_API_MODEL` | `GROQ_API_MODEL` | `OLLAMA_MODEL` | deepseek-chat / kimi-k2 / qwen2.5:7b |
+| Max tokens | `DEEPSEEK_API_MAX_TOKENS` | `GROQ_API_MAX_TOKENS` | `OLLAMA_MAX_TOKENS` | 4000 |
+| Timeout | `DEEPSEEK_API_TIMEOUT_SECONDS` | `GROQ_API_TIMEOUT_SECONDS` | `OLLAMA_TIMEOUT_SECONDS` | 60s / 60s / 120s |
+| URL | `DEEPSEEK_API_URL` | `GROQ_API_URL` | `OLLAMA_URL` | platform URLs / `http://localhost:11434` |
 
-**Runtime provider switching:** `web/state.py` exposes `set_provider(provider, session_id)` which switches the LLM provider per session without restart. Supported values: `"ollama"` (routes to local Ollama at `http://localhost:11434/v1/chat/completions`, model `qwen2.5:7b`, no API key) or the startup provider (`"deepseek"` / `"groq"`). Each session has its own `ClientConfig` and `DeepSeekClient` stored in `_session_configs` / `_session_clients` dicts. New sessions inherit the config of the `"default"` session at creation time. The API endpoint is `POST /config/provider?session_id=...`.
+Setting `PROVIDER=ollama` requires **no API key** and routes all LLM calls to a local Ollama instance. This enables running the full application without any cloud services.
+
+**Runtime provider switching:** `web/state.py` exposes `set_provider(provider, session_id)` which switches the LLM provider per session without restart. Supported values: `"ollama"` (routes to local Ollama, no API key) or the startup provider (`"deepseek"` / `"groq"`). Each session has its own `ClientConfig` and `DeepSeekClient` stored in `_session_configs` / `_session_clients` dicts. New sessions inherit the config of the `"default"` session at creation time. The API endpoint is `POST /config/provider?session_id=...`.
 
 Additional settings (provider-agnostic):
 
