@@ -317,4 +317,22 @@ python3 experiments/rag_compare/cli.py search --query "how does attention work?"
 
 # 6. Run RAG mini-chat
 python3 experiments/rag_compare/rag_chat.py
+
+# 7. Day 28 — compare local (Ollama) vs cloud (DeepSeek/Groq) generation
+python3 experiments/rag_compare/cli.py local-vs-cloud --save
 ```
+
+---
+
+## Day 28 — Local vs Cloud LLM comparison (`local_vs_cloud.py`)
+
+`experiments/rag_compare/local_vs_cloud.py` — runs the same 10 eval questions through two generator LLMs (retrieval is identical for both):
+
+- **LOCAL** — Ollama (`OLLAMA_MODEL`, default `qwen2.5:7b`)
+- **CLOUD** — DeepSeek or Groq (read from `.env`, DeepSeek checked first)
+
+Both use the same local Ollama embeddings and same SQLite index — only the generator differs.
+
+**Metrics**: keyword hit rate, source accuracy, avg/median elapsed, timeout count.
+
+**Results** (Day 28 run): local 74% vs cloud 80% keyword hits, identical 80% source accuracy, local faster (4.0s avg vs 4.7s). Full report: `experiments/rag_compare/data/day28_local_vs_cloud_report.md`.

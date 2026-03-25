@@ -73,6 +73,9 @@ python3 experiments/rag_compare/cli.py citations --save     # save to data/citat
 
 # RAG mini-chat with dialogue task memory (Day 25)
 python3 experiments/rag_compare/rag_chat.py
+
+# Day 28 — Local LLM vs Cloud LLM RAG comparison
+python3 experiments/rag_compare/cli.py local-vs-cloud --save
 ```
 
 ## Architecture
@@ -175,6 +178,8 @@ Experiment artifacts live in `experiments/rag_compare/data/`:
 | File | Purpose |
 |------|---------|
 | `comparison_report.json` | Strategy comparison results |
+| `local_vs_cloud_report.json` | Day 28: local Ollama vs cloud LLM RAG comparison (raw data) |
+| `day28_local_vs_cloud_report.md` | Day 28: human-readable analysis report |
 
 Memory/profile/invariants are **reloaded from disk on every request** to pick up real-time edits.
 

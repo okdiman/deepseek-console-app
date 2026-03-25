@@ -144,6 +144,28 @@ def cmd_citations(args: argparse.Namespace) -> None:
         print(f"\nReport saved to: {path}")
 
 
+def cmd_local_vs_cloud(args: argparse.Namespace) -> None:
+    from experiments.rag_compare.local_vs_cloud import (
+        run_comparison,
+        print_report,
+        save_report,
+    )
+
+    report = asyncio.run(
+        run_comparison(
+            top_k=args.top_k,
+            pre_rerank_top_k=args.pre_rerank_top_k,
+            threshold=args.threshold,
+            strategy=args.strategy,
+            verbose=True,
+        )
+    )
+    print_report(report)
+    if args.save:
+        path = save_report(report)
+        print(f"\nReport saved to: {path}")
+
+
 def cmd_benchmark(args: argparse.Namespace) -> None:
     from experiments.rag_compare.benchmark import (
         run_benchmark,
@@ -273,6 +295,17 @@ def main() -> None:
                          dest="pre_rerank_top_k",
                          help="Candidates fetched before filtering (default: 10)")
 
+    # local-vs-cloud
+    p_lvc = sub.add_parser(
+        "local-vs-cloud",
+        help="Day 28: compare local Ollama vs cloud LLM on RAG questions",
+    )
+    p_lvc.add_argument("--strategy", choices=["fixed", "structure"], default="structure")
+    p_lvc.add_argument("--top-k", type=int, default=3, dest="top_k")
+    p_lvc.add_argument("--pre-rerank-top-k", type=int, default=10, dest="pre_rerank_top_k")
+    p_lvc.add_argument("--threshold", type=float, default=0.30)
+    p_lvc.add_argument("--save", action="store_true", help="Save JSON report to data/")
+
     args = parser.parse_args()
 
     dispatch = {
@@ -283,6 +316,7 @@ def main() -> None:
         "ask": cmd_ask,
         "benchmark": cmd_benchmark,
         "citations": cmd_citations,
+        "local-vs-cloud": cmd_local_vs_cloud,
     }
     dispatch[args.command](args)
 
