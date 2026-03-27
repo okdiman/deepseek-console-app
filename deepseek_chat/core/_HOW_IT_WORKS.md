@@ -46,6 +46,7 @@ Additional settings (provider-agnostic):
 
 | Env var | Default | Purpose |
 |---------|---------|---------|
+| `OLLAMA_NUM_CTX` | *(unset)* | Ollama context window size (e.g. 4096); passed as `options.num_ctx`; when unset, Ollama uses the model default |
 | `DEEPSEEK_PERSIST_CONTEXT` | `true` | Save/load conversation history to disk |
 | `DEEPSEEK_CONTEXT_PATH` | `data/context.json` | Path for persisted session |
 | `DEEPSEEK_CONTEXT_MAX_MESSAGES` | `40` | Sliding window size |
@@ -80,7 +81,7 @@ Tool call arguments are accumulated across chunks (streamed by the API) before b
 ### Provider-specific payload handling
 
 - `deepseek` — adds `frequency_penalty`, `presence_penalty`, `thinking` to the payload
-- `ollama` — removes `response_format` (not universally supported across Ollama model versions)
+- `ollama` — removes `response_format` (not universally supported across Ollama model versions); if `ClientConfig.ollama_num_ctx` is set, adds `"options": {"num_ctx": N}` to the payload (Ollama-specific context window override)
 - `groq` — no extra fields; standard OpenAI-compatible payload
 
 ### Error handling

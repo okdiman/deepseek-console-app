@@ -13,6 +13,8 @@ Commands:
                [--mode all|baseline|filter|rewrite|full]
                [--pre-rerank-top-k N] [--threshold F]
                [--reranker-type threshold|heuristic]
+    optimize   [--profiles baseline,fast,quality,quality_large] [--save]
+               Day 29: compare optimization profiles for local Ollama LLM
 """
 
 import argparse
@@ -142,6 +144,43 @@ def cmd_citations(args: argparse.Namespace) -> None:
     if args.save:
         path = save_results(results)
         print(f"\nReport saved to: {path}")
+
+
+def cmd_optimize(args: argparse.Namespace) -> None:
+    from experiments.rag_compare.optimize import (
+        run_optimization,
+        print_report,
+        save_report,
+        save_markdown_report,
+        ALL_PROFILES,
+        PROFILE_MAP,
+    )
+
+    profiles = ALL_PROFILES
+    if args.profiles:
+        names = [n.strip() for n in args.profiles.split(",")]
+        unknown = [n for n in names if n not in PROFILE_MAP]
+        if unknown:
+            print(f"Unknown profiles: {unknown}. Available: {list(PROFILE_MAP.keys())}")
+            return
+        profiles = [PROFILE_MAP[n] for n in names]
+
+    report = asyncio.run(
+        run_optimization(
+            profiles=profiles,
+            top_k=args.top_k,
+            pre_rerank_top_k=args.pre_rerank_top_k,
+            threshold=args.threshold,
+            strategy=args.strategy,
+            verbose=True,
+        )
+    )
+    print_report(report)
+    if args.save:
+        json_path = save_report(report)
+        md_path = save_markdown_report(report)
+        print(f"\nJSON report : {json_path}")
+        print(f"MD report   : {md_path}")
 
 
 def cmd_local_vs_cloud(args: argparse.Namespace) -> None:
@@ -295,6 +334,22 @@ def main() -> None:
                          dest="pre_rerank_top_k",
                          help="Candidates fetched before filtering (default: 10)")
 
+    # optimize
+    p_opt = sub.add_parser(
+        "optimize",
+        help="Day 29: compare optimization profiles for local Ollama LLM",
+    )
+    p_opt.add_argument(
+        "--profiles",
+        default="",
+        help="Comma-separated profile names: baseline,fast,quality,quality_large (default: all)",
+    )
+    p_opt.add_argument("--strategy", choices=["fixed", "structure"], default="structure")
+    p_opt.add_argument("--top-k", type=int, default=3, dest="top_k")
+    p_opt.add_argument("--pre-rerank-top-k", type=int, default=10, dest="pre_rerank_top_k")
+    p_opt.add_argument("--threshold", type=float, default=0.30)
+    p_opt.add_argument("--save", action="store_true", help="Save JSON+MD reports to data/")
+
     # local-vs-cloud
     p_lvc = sub.add_parser(
         "local-vs-cloud",
@@ -317,6 +372,7 @@ def main() -> None:
         "benchmark": cmd_benchmark,
         "citations": cmd_citations,
         "local-vs-cloud": cmd_local_vs_cloud,
+        "optimize": cmd_optimize,
     }
     dispatch[args.command](args)
 

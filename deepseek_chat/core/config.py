@@ -3,6 +3,7 @@
 import os
 import sys
 from dataclasses import dataclass, field
+from typing import Optional
 
 from dotenv import load_dotenv
 from deepseek_chat.core.paths import DATA_DIR
@@ -42,6 +43,9 @@ class ClientConfig:
     optional_params: OptionalRequestParams = field(
         default_factory=OptionalRequestParams
     )
+    # Ollama-specific: context window size passed via "options.num_ctx".
+    # None means use the Ollama model default (typically 2048 for qwen2.5:7b).
+    ollama_num_ctx: Optional[int] = None
 
 
 def load_config() -> ClientConfig:
@@ -52,6 +56,7 @@ def load_config() -> ClientConfig:
         print("Error: PROVIDER must be 'deepseek', 'groq', or 'ollama'!")
         sys.exit(1)
 
+    ollama_num_ctx: Optional[int] = None
     if provider == "ollama":
         ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
         api_url = f"{ollama_url}/v1/chat/completions"
@@ -62,6 +67,9 @@ def load_config() -> ClientConfig:
         models_url = f"{ollama_url}/v1/models"
         price_prompt = 0.0
         price_completion = 0.0
+        _num_ctx_raw = os.getenv("OLLAMA_NUM_CTX", "").strip()
+        if _num_ctx_raw:
+            ollama_num_ctx = int(_num_ctx_raw)
     elif provider == "groq":
         api_key = os.getenv("GROQ_API_KEY", "")
         if not api_key:
@@ -134,4 +142,5 @@ def load_config() -> ClientConfig:
         compression_threshold=compression_threshold,
         compression_keep=compression_keep,
         optional_params=optional_params,
+        ollama_num_ctx=ollama_num_ctx,
     )

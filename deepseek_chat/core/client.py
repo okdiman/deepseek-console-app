@@ -76,6 +76,9 @@ class DeepSeekClient:
         if self._config.provider == "ollama":
             # Ollama does not support response_format in all model/version combinations
             payload.pop("response_format", None)
+            # Pass Ollama-specific options (e.g. context window size)
+            if self._config.ollama_num_ctx is not None:
+                payload["options"] = {"num_ctx": self._config.ollama_num_ctx}
 
         start_time = perf_counter()
         usage: Optional[dict] = None

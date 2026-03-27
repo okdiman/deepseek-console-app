@@ -76,6 +76,11 @@ python3 experiments/rag_compare/rag_chat.py
 
 # Day 28 — Local LLM vs Cloud LLM RAG comparison
 python3 experiments/rag_compare/cli.py local-vs-cloud --save
+
+# Day 29 — Local LLM optimization (parameter + prompt profiling)
+python3 experiments/rag_compare/cli.py optimize
+python3 experiments/rag_compare/cli.py optimize --save
+python3 experiments/rag_compare/cli.py optimize --profiles baseline,quality --save
 ```
 
 ## Architecture
@@ -180,6 +185,8 @@ Experiment artifacts live in `experiments/rag_compare/data/`:
 | `comparison_report.json` | Strategy comparison results |
 | `local_vs_cloud_report.json` | Day 28: local Ollama vs cloud LLM RAG comparison (raw data) |
 | `day28_local_vs_cloud_report.md` | Day 28: human-readable analysis report |
+| `day29_optimization_report.json` | Day 29: parameter+prompt optimization results (raw data) |
+| `day29_optimization_report.md` | Day 29: human-readable optimization report |
 
 Memory/profile/invariants are **reloaded from disk on every request** to pick up real-time edits.
 
@@ -277,6 +284,7 @@ OLLAMA_URL=http://localhost:11434   # default
 OLLAMA_MODEL=qwen2.5:7b            # default; any model pulled via `ollama pull`
 OLLAMA_MAX_TOKENS=4000             # default
 OLLAMA_TIMEOUT_SECONDS=120         # default (local inference is slower)
+OLLAMA_NUM_CTX=4096                # optional; sets context window via options.num_ctx
 ```
 
 **Groq:**
