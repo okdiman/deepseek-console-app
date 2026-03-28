@@ -196,6 +196,7 @@ Experiment artifacts live in `experiments/rag_compare/data/`:
 | `day28_local_vs_cloud_report.md` | Day 28: human-readable analysis report |
 | `day29_optimization_report.json` | Day 29: parameter+prompt optimization results (raw data) |
 | `day29_optimization_report.md` | Day 29: human-readable optimization report |
+| `day30_stability_report.md` | Day 30: stability test results and analysis (3 concurrency series) |
 
 Memory/profile/invariants are **reloaded from disk on every request** to pick up real-time edits.
 
