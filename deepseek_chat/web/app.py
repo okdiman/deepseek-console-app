@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import uvicorn
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
@@ -12,8 +14,16 @@ import logging
 import shutil
 import subprocess
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from dotenv import load_dotenv
+
+from .middleware import APIKeyMiddleware
 from .routes import router
 from .state import get_client, get_mcp_manager
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +105,13 @@ async def lifespan(app: FastAPI):
         except subprocess.TimeoutExpired:
             _ollama_proc.kill()
 
+_rate_limit = os.getenv("RATE_LIMIT_PER_MINUTE", "60")
+limiter = Limiter(key_func=get_remote_address, default_limits=[f"{_rate_limit}/minute"])
+
 app = FastAPI(title="DeepSeek Web Chat", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(APIKeyMiddleware)
 
 BASE_DIR = Path(__file__).parent.resolve()
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -103,10 +119,23 @@ app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.include_router(router)
 
 
+@app.get("/health")
+async def health() -> JSONResponse:
+    """Liveness probe — returns service info without auth."""
+    return JSONResponse({
+        "status": "ok",
+        "service": "deepseek-chat",
+        "auth_enabled": bool(os.getenv("SERVICE_API_KEY", "").strip()),
+        "rate_limit_per_minute": int(_rate_limit),
+    })
+
+
 if __name__ == "__main__":
+    host = os.getenv("SERVICE_HOST", "127.0.0.1")
+    port = int(os.getenv("SERVICE_PORT", "8000"))
     uvicorn.run(
         "deepseek_chat.web.app:app",
-        host="127.0.0.1",
-        port=8000,
+        host=host,
+        port=port,
         reload=False,
     )

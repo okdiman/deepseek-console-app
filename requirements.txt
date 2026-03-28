@@ -5,3 +5,4 @@ tiktoken>=0.7.0
 fastapi>=0.110.0
 uvicorn>=0.27.0
 mcp>=1.2.0
+slowapi>=0.1.9

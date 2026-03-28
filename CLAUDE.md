@@ -77,6 +77,15 @@ python3 experiments/rag_compare/rag_chat.py
 # Day 28 — Local LLM vs Cloud LLM RAG comparison
 python3 experiments/rag_compare/cli.py local-vs-cloud --save
 
+# Day 30 — Run as private network service (bind to 0.0.0.0)
+SERVICE_HOST=0.0.0.0 SERVICE_PORT=8000 python3 -m deepseek_chat.web.app
+# With auth + rate limit:
+SERVICE_API_KEY=secret RATE_LIMIT_PER_MINUTE=30 python3 -m deepseek_chat.web.app
+# Health check (no auth required):
+curl http://127.0.0.1:8000/health
+# Stability test (requires service running):
+python3 experiments/stability_test.py --concurrency 3 --requests 9
+
 # Day 29 — Local LLM optimization (parameter + prompt profiling)
 python3 experiments/rag_compare/cli.py optimize
 python3 experiments/rag_compare/cli.py optimize --save
@@ -206,8 +215,9 @@ Persistence file formats:
 
 ### Web Layer (`web/`)
 
-- `app.py` — FastAPI app; lifespan starts MCP servers and scheduler runner
-- `routes.py` — all HTTP/SSE endpoints; includes `GET /config/provider` and `POST /config/provider` for runtime switching
+- `app.py` — FastAPI app; lifespan starts MCP servers and scheduler runner; rate limiter (`slowapi`) + `APIKeyMiddleware` applied at startup; `/health` endpoint (no auth); binds to `SERVICE_HOST`/`SERVICE_PORT`
+- `middleware.py` — `APIKeyMiddleware`: checks `X-API-Key` header when `SERVICE_API_KEY` is set; exempts `/`, `/static/*`, `/health`
+- `routes.py` — all HTTP/SSE endpoints; includes `GET /config/provider` and `POST /config/provider` for runtime switching; `/stream` enforces `MAX_INPUT_CHARS` limit
 - `streaming.py` — SSE generator with task marker parsing; `_collect_task_markers` and `_apply_task_markers` are pure functions (testable without HTTP context)
 - `state.py` — singletons for config, client, sessions, task machines, MCP; `get_agent()` factory; `set_provider(provider)` for runtime provider switching
 - Frontend: vanilla JS (`static/app.js`, ~48KB) + CSS; no build step needed
@@ -306,6 +316,15 @@ DEEPSEEK_PERSIST_CONTEXT=true        # default
 DEEPSEEK_CONTEXT_PATH=~/.deepseek_chat/context.json
 DEEPSEEK_WEB_CONTEXT_PATH=...        # override context file path for web
 DEEPSEEK_CONTEXT_MAX_MESSAGES=40     # sliding window size
+```
+
+**Day 30 — Private service:**
+```dotenv
+SERVICE_HOST=0.0.0.0       # bind address (default: 127.0.0.1)
+SERVICE_PORT=8000           # bind port (default: 8000)
+SERVICE_API_KEY=            # if set, X-API-Key header required on all non-exempt endpoints
+RATE_LIMIT_PER_MINUTE=60   # max requests per IP per minute (default: 60)
+MAX_INPUT_CHARS=0           # max /stream message length in chars (0 = unlimited)
 ```
 
 **Context compression:**

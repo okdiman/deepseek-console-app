@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 import aiohttp
@@ -106,6 +107,12 @@ async def stream(
     temperature: Optional[float] = Query(default=None),
     top_p: Optional[float] = Query(default=None),
 ) -> StreamingResponse:
+    max_chars = int(os.getenv("MAX_INPUT_CHARS", "0"))
+    if max_chars > 0 and len(message) > max_chars:
+        return JSONResponse(
+            {"detail": f"Message too long: {len(message)} chars (max {max_chars})."},
+            status_code=400,
+        )
     return sse_response(stream_events(
         request=request, message=message, agent_id=agent, session_id=session_id,
         temperature=temperature, top_p=top_p
