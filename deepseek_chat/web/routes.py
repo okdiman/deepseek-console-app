@@ -23,9 +23,11 @@ from .state import (
 from .cost_tracker import reset_session_cost_usd
 from ..core.memory import DialogueTask, InvariantStore, MemoryStore, UserProfile
 from ..core.mcp import MCPServerConfig
+from ..core import change_store
 from .streaming import sse_response, stream_events
 from .views import render_index
 from mcp_servers.scheduler import scheduler_store as _sched_store
+from mcp_servers.filesystem_server import apply_change as _fs_apply, discard_change as _fs_discard
 
 router = APIRouter()
 
@@ -424,3 +426,33 @@ async def execute_agent_task(payload: AgentTaskRequest) -> JSONResponse:
         import traceback
         traceback.print_exc()
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# ── Filesystem change proposals ──────────────────────────────────────────────
+
+@router.get("/pending-changes")
+async def get_pending_changes() -> JSONResponse:
+    """Return all proposals waiting for user approval."""
+    proposals = change_store.list_all()
+    return JSONResponse({
+        "proposals": [
+            {"id": p.id, "kind": p.kind, "path": p.path, "preview": p.preview}
+            for p in proposals
+        ]
+    })
+
+
+@router.post("/apply-change")
+async def apply_change_route(proposal_id: str = Query(...)) -> JSONResponse:
+    """Apply a pending proposal (user-triggered, not LLM-triggered)."""
+    result = _fs_apply(proposal_id)
+    ok = result.startswith("✅")
+    return JSONResponse({"ok": ok, "message": result})
+
+
+@router.post("/discard-change")
+async def discard_change_route(proposal_id: str = Query(...)) -> JSONResponse:
+    """Discard a pending proposal."""
+    result = _fs_discard(proposal_id)
+    ok = "not found" not in result.lower()
+    return JSONResponse({"ok": ok, "message": result})

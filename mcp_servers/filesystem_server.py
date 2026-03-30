@@ -1,45 +1,35 @@
 """Filesystem MCP Server — two-phase read/write access to the project.
 
-Write operations are always two-phase:
-  1. propose_*  — validates the change, stores it in memory, returns a diff/preview
-  2. apply_change(proposal_id) — actually writes to disk
+Write operations are strictly two-phase:
+  1. propose_*  — validates the change, persists it to change_store, returns a diff
+  2. apply / discard — triggered ONLY by the user (web buttons or console commands)
 
-This ensures the LLM can never modify files without an explicit user confirmation step.
+The LLM has NO apply/discard tools. It physically cannot write files on its own.
 """
 from __future__ import annotations
 
 import difflib
-import fnmatch
+import sys
 import uuid
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-mcp = FastMCP("Filesystem Server")
-
+# change_store lives in the main package; add project root to sys.path
 _PROJECT_ROOT = Path(__file__).parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
-# ── Pending proposal store ────────────────────────────────────────────────────
+from deepseek_chat.core import change_store
+from deepseek_chat.core.change_store import Proposal
 
-@dataclass
-class _Proposal:
-    kind: Literal["write", "edit", "delete"]
-    path: str          # relative to _PROJECT_ROOT
-    preview: str       # human-readable diff / content shown to user
-    # payload for apply:
-    content: str | None = None      # for write
-    old_string: str | None = None   # for edit
-    new_string: str | None = None   # for edit
-
-_pending: dict[str, _Proposal] = {}
+mcp = FastMCP("Filesystem Server")
 
 
 def _rel(path: str) -> Path:
     """Resolve a project-relative path safely (no escaping above root)."""
     resolved = (_PROJECT_ROOT / path).resolve()
-    if not str(resolved).startswith(str(_PROJECT_ROOT)):
+    if not str(resolved).startswith(str(_PROJECT_ROOT.resolve())):
         raise ValueError(f"Path '{path}' escapes the project root.")
     return resolved
 
@@ -56,8 +46,7 @@ def _unified_diff(path: str, old: str, new: str) -> str:
         fromfile=f"a/{path}", tofile=f"b/{path}",
         lineterm="",
     )
-    result = "".join(diff)
-    return result or "(no textual changes)"
+    return "".join(diff) or "(no textual changes)"
 
 
 # ── Read tools ────────────────────────────────────────────────────────────────
@@ -131,13 +120,13 @@ def search_in_files(pattern: str, glob: str = "**/*.py") -> str:
     return "\n".join(matches) if matches else f"No matches for '{pattern}' in '{glob}'."
 
 
-# ── Proposal tools ────────────────────────────────────────────────────────────
+# ── Proposal tools (LLM can call these) ──────────────────────────────────────
 
 @mcp.tool()
 def propose_write(path: str, content: str) -> str:
-    """Propose creating or overwriting a file. Returns a proposal_id and a preview.
+    """Propose creating or overwriting a file. Saves the proposal for user review.
 
-    The file is NOT written until apply_change(proposal_id) is called.
+    The file is NOT written until the user approves via the web UI or /apply command.
     path: Path relative to project root.
     content: Full file content to write.
     """
@@ -156,20 +145,21 @@ def propose_write(path: str, content: str) -> str:
         action = "create"
 
     pid = _short_id()
-    _pending[pid] = _Proposal(kind="write", path=path, preview=preview, content=content)
+    change_store.add(Proposal(id=pid, kind="write", path=path, preview=preview, content=content))
 
     return (
-        f"Proposal [{pid}] — {action} `{path}`:\n\n"
+        f"Proposal `{pid}` — {action} `{path}`:\n\n"
         f"```diff\n{preview}\n```\n\n"
-        f"Call `apply_change(\"{pid}\")` to apply, or `discard_change(\"{pid}\")` to cancel."
+        f"⏳ Waiting for your approval. Use the **Apply / Discard** buttons in the UI, "
+        f"or type `/apply {pid}` / `/discard {pid}` in the console."
     )
 
 
 @mcp.tool()
 def propose_edit(path: str, old_string: str, new_string: str) -> str:
-    """Propose replacing an exact string in a file. Returns a proposal_id and a diff.
+    """Propose replacing an exact string in a file. Saves the proposal for user review.
 
-    The file is NOT modified until apply_change(proposal_id) is called.
+    The file is NOT modified until the user approves via the web UI or /apply command.
     path: Path relative to project root.
     old_string: Exact text to find (must be unique in the file).
     new_string: Text to replace it with.
@@ -197,23 +187,24 @@ def propose_edit(path: str, old_string: str, new_string: str) -> str:
     preview = _unified_diff(path, original, modified)
 
     pid = _short_id()
-    _pending[pid] = _Proposal(
-        kind="edit", path=path, preview=preview,
+    change_store.add(Proposal(
+        id=pid, kind="edit", path=path, preview=preview,
         old_string=old_string, new_string=new_string,
-    )
+    ))
 
     return (
-        f"Proposal [{pid}] — edit `{path}`:\n\n"
+        f"Proposal `{pid}` — edit `{path}`:\n\n"
         f"```diff\n{preview}\n```\n\n"
-        f"Call `apply_change(\"{pid}\")` to apply, or `discard_change(\"{pid}\")` to cancel."
+        f"⏳ Waiting for your approval. Use the **Apply / Discard** buttons in the UI, "
+        f"or type `/apply {pid}` / `/discard {pid}` in the console."
     )
 
 
 @mcp.tool()
 def propose_delete(path: str) -> str:
-    """Propose deleting a file. Returns a proposal_id.
+    """Propose deleting a file. Saves the proposal for user review.
 
-    The file is NOT deleted until apply_change(proposal_id) is called.
+    The file is NOT deleted until the user approves via the web UI or /apply command.
     path: Path relative to project root.
     """
     try:
@@ -225,27 +216,33 @@ def propose_delete(path: str) -> str:
         return f"File not found: {path}"
 
     pid = _short_id()
-    _pending[pid] = _Proposal(kind="delete", path=path, preview=f"Delete file: {path}")
+    change_store.add(Proposal(id=pid, kind="delete", path=path, preview=f"Delete file: {path}"))
 
     return (
-        f"Proposal [{pid}] — delete `{path}`.\n\n"
-        f"Call `apply_change(\"{pid}\")` to confirm deletion, "
-        f"or `discard_change(\"{pid}\")` to cancel."
+        f"Proposal `{pid}` — delete `{path}`.\n\n"
+        f"⏳ Waiting for your approval. Use the **Apply / Discard** buttons in the UI, "
+        f"or type `/apply {pid}` / `/discard {pid}` in the console."
     )
 
 
-# ── Apply / discard ───────────────────────────────────────────────────────────
-
 @mcp.tool()
-def apply_change(proposal_id: str) -> str:
-    """Apply a previously proposed file change.
+def list_pending_changes() -> str:
+    """List all proposals currently waiting for user approval."""
+    proposals = change_store.list_all()
+    if not proposals:
+        return "No pending proposals."
+    lines = [f"`{p.id}` — {p.kind} `{p.path}`" for p in proposals]
+    return "\n".join(lines)
 
-    proposal_id: The ID returned by propose_write / propose_edit / propose_delete.
-    """
-    proposal = _pending.pop(proposal_id, None)
+
+# ── Apply / discard (NOT MCP tools — called only by web routes / console) ─────
+
+def apply_change(proposal_id: str) -> str:
+    """Apply a proposal. Called by the web route or console — NOT by the LLM."""
+    proposal = change_store.get(proposal_id)
     if proposal is None:
-        ids = ", ".join(_pending.keys()) or "none"
-        return f"Proposal '{proposal_id}' not found. Pending proposals: {ids}"
+        pending = ", ".join(p.id for p in change_store.list_all()) or "none"
+        return f"Proposal '{proposal_id}' not found. Pending: {pending}"
 
     try:
         abs_path = _rel(proposal.path)
@@ -253,48 +250,36 @@ def apply_change(proposal_id: str) -> str:
         if proposal.kind == "write":
             abs_path.parent.mkdir(parents=True, exist_ok=True)
             abs_path.write_text(proposal.content, encoding="utf-8")
+            change_store.remove(proposal_id)
             return f"✅ Written: `{proposal.path}`"
 
         elif proposal.kind == "edit":
             original = abs_path.read_text(encoding="utf-8", errors="replace")
-            if original.count(proposal.old_string) != 1:
+            count = original.count(proposal.old_string)
+            if count != 1:
                 return (
-                    f"❌ Cannot apply: the target string now appears "
-                    f"{original.count(proposal.old_string)} times in '{proposal.path}'. "
-                    f"File may have changed since the proposal was created."
+                    f"❌ Cannot apply: target string now appears {count} times in "
+                    f"'{proposal.path}' (file changed since proposal was created)."
                 )
             modified = original.replace(proposal.old_string, proposal.new_string, 1)
             abs_path.write_text(modified, encoding="utf-8")
+            change_store.remove(proposal_id)
             return f"✅ Edited: `{proposal.path}`"
 
         elif proposal.kind == "delete":
             abs_path.unlink()
+            change_store.remove(proposal_id)
             return f"✅ Deleted: `{proposal.path}`"
 
     except Exception as e:
-        return f"❌ Failed to apply proposal '{proposal_id}': {e}"
+        return f"❌ Failed to apply '{proposal_id}': {e}"
 
 
-@mcp.tool()
 def discard_change(proposal_id: str) -> str:
-    """Discard a pending proposal without applying it.
-
-    proposal_id: The ID returned by propose_write / propose_edit / propose_delete.
-    """
-    if _pending.pop(proposal_id, None) is not None:
+    """Discard a proposal. Called by the web route or console — NOT by the LLM."""
+    if change_store.remove(proposal_id):
         return f"Proposal '{proposal_id}' discarded."
-    return f"Proposal '{proposal_id}' not found (already applied or discarded)."
-
-
-@mcp.tool()
-def list_pending_changes() -> str:
-    """List all pending (not yet applied) proposals."""
-    if not _pending:
-        return "No pending proposals."
-    lines = []
-    for pid, p in _pending.items():
-        lines.append(f"[{pid}] {p.kind} — `{p.path}`")
-    return "\n".join(lines)
+    return f"Proposal '{proposal_id}' not found."
 
 
 # ── Test runner ───────────────────────────────────────────────────────────────
@@ -304,7 +289,7 @@ def run_tests(test_path: str = "tests/") -> str:
     """Run pytest on the project (or a specific test file/directory).
 
     test_path: Path relative to project root (default: 'tests/').
-    Returns test output (stdout + stderr), truncated to 8000 chars.
+    Returns test output truncated to 8000 chars.
     """
     import subprocess
     try:
@@ -314,7 +299,7 @@ def run_tests(test_path: str = "tests/") -> str:
 
     try:
         result = subprocess.run(
-            ["python", "-m", "pytest", str(abs_path), "--tb=short", "-q"],
+            [sys.executable, "-m", "pytest", str(abs_path), "--tb=short", "-q"],
             cwd=_PROJECT_ROOT,
             capture_output=True,
             text=True,

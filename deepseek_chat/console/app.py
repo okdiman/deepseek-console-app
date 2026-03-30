@@ -5,6 +5,8 @@ from ..agents.dev_help_agent import DevHelpAgent
 from ..core.client import DeepSeekClient
 from ..core.session import ChatSession
 from ..core.stream_printer import StreamPrinter
+from ..core import change_store
+from mcp_servers.filesystem_server import apply_change as _fs_apply, discard_change as _fs_discard
 
 
 class ConsoleApp:
@@ -24,6 +26,9 @@ class ConsoleApp:
         print("- Type any question to get AI response")
         print("- /help               - Show this help")
         print("- /help <question>    - Ask about the project (uses project docs)")
+        print("- /pending            - List pending file change proposals")
+        print("- /apply <id>         - Apply a pending file change proposal")
+        print("- /discard <id>       - Discard a pending file change proposal")
         print("- /clear              - Clear chat context")
         print("- /context            - Show chat history size")
         print("- /provider           - Show current provider and model")
@@ -111,6 +116,25 @@ class ConsoleApp:
                     question = user_input[6:].strip()
                     if question:
                         await self._handle_help_question(question)
+                    continue
+
+                if user_input.lower() in ["/pending", "pending"]:
+                    proposals = change_store.list_all()
+                    if not proposals:
+                        print("No pending proposals.")
+                    else:
+                        for p in proposals:
+                            print(f"  [{p.id}] {p.kind} — {p.path}")
+                    continue
+
+                if user_input.lower().startswith("/apply "):
+                    pid = user_input[7:].strip()
+                    print(_fs_apply(pid))
+                    continue
+
+                if user_input.lower().startswith("/discard "):
+                    pid = user_input[9:].strip()
+                    print(_fs_discard(pid))
                     continue
 
                 if user_input.lower() in ["/clear", "clear"]:

@@ -995,6 +995,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (inputMode === "agent") {
           loadTaskState();
         }
+
+        // Check for pending file change proposals and render approve/discard UI
+        loadPendingChanges();
       }
       if (payload.error) {
         statusEl.textContent = "Error: " + payload.error;
@@ -1115,6 +1118,74 @@ document.addEventListener("DOMContentLoaded", () => {
 
   modeChatBtn.addEventListener("click", () => setMode("chat"));
   modeAgentBtn.addEventListener("click", () => setMode("agent"));
+
+  // ── Pending File Changes Panel ─────────────────────────
+
+  async function loadPendingChanges() {
+    try {
+      const res = await fetch("/pending-changes");
+      if (!res.ok) return;
+      const data = await res.json();
+      renderPendingChanges(data.proposals || []);
+    } catch (e) { console.error("Failed to load pending changes", e); }
+  }
+
+  function renderPendingChanges(proposals) {
+    let panel = document.getElementById("pending-changes-panel");
+    if (!proposals.length) {
+      if (panel) panel.remove();
+      return;
+    }
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "pending-changes-panel";
+      panel.style.cssText = (
+        "margin:12px 0;padding:12px 16px;border-radius:8px;" +
+        "background:var(--bg-secondary,#1e1e2e);border:1px solid var(--accent,#7c3aed);" +
+        "font-size:13px;"
+      );
+      const chat = document.getElementById("chat");
+      chat.parentNode.insertBefore(panel, chat.nextSibling);
+    }
+    panel.innerHTML = "<strong style='color:var(--accent,#7c3aed)'>⏳ Pending Changes</strong>";
+    proposals.forEach(p => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:8px;margin-top:8px;";
+
+      const label = document.createElement("span");
+      label.style.flex = "1";
+      label.textContent = `[${p.id}] ${p.kind} — ${p.path}`;
+
+      const applyBtn = document.createElement("button");
+      applyBtn.textContent = "✅ Apply";
+      applyBtn.style.cssText = "padding:3px 10px;border-radius:4px;cursor:pointer;background:#16a34a;color:#fff;border:none;";
+      applyBtn.onclick = async () => {
+        applyBtn.disabled = true;
+        discardBtn.disabled = true;
+        const r = await fetch(`/apply-change?proposal_id=${encodeURIComponent(p.id)}`, {method:"POST"});
+        const d = await r.json();
+        addMessage("system", d.message || (d.ok ? "Applied." : "Failed."));
+        loadPendingChanges();
+      };
+
+      const discardBtn = document.createElement("button");
+      discardBtn.textContent = "🗑 Discard";
+      discardBtn.style.cssText = "padding:3px 10px;border-radius:4px;cursor:pointer;background:#dc2626;color:#fff;border:none;";
+      discardBtn.onclick = async () => {
+        applyBtn.disabled = true;
+        discardBtn.disabled = true;
+        const r = await fetch(`/discard-change?proposal_id=${encodeURIComponent(p.id)}`, {method:"POST"});
+        const d = await r.json();
+        addMessage("system", d.message || "Discarded.");
+        loadPendingChanges();
+      };
+
+      row.appendChild(label);
+      row.appendChild(applyBtn);
+      row.appendChild(discardBtn);
+      panel.appendChild(row);
+    });
+  }
 
   // ── Task State Panel ───────────────────────────────────
 
