@@ -194,10 +194,10 @@ class RagHook(AgentHook):
                     block.max_score,
                     block.chunk_count,
                 )
-                # Suppress MCP tools when RAG found relevant context — model should
-                # use the local index first; tools remain available only when context
-                # is empty or too weak to answer.
-                if block.confidence == ContextConfidence.CONFIDENT:
+                # Suppress MCP tools when RAG has anything useful (CONFIDENT or UNCERTAIN).
+                # Tools remain available only when context is EMPTY or WEAK (score < IDK
+                # threshold) — i.e. the index truly has nothing relevant.
+                if block.confidence in (ContextConfidence.CONFIDENT, ContextConfidence.UNCERTAIN):
                     self.suppress_tools = True
                 return system_prompt + block.formatted
             else:
