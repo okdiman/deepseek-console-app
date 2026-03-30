@@ -1,9 +1,12 @@
 import json
 import os
+import sys
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from deepseek_chat.core.paths import DATA_DIR
+
+_PYTHON = sys.executable
 
 
 class MCPServerConfig(BaseModel):
@@ -24,6 +27,50 @@ class MCPRegistryStore(BaseModel):
     servers: List[MCPServerConfig] = Field(default_factory=list)
 
 
+_BUILTIN_SERVERS: List[MCPServerConfig] = [
+    MCPServerConfig(
+        id="local_demo",
+        name="Local Demo Server",
+        command=_PYTHON,
+        args=["mcp_servers/demo_server.py"],
+        env={},
+        enabled=True,
+    ),
+    MCPServerConfig(
+        id="scheduler",
+        name="Scheduler Server",
+        command=_PYTHON,
+        args=["mcp_servers/scheduler/scheduler_server.py"],
+        env={},
+        enabled=True,
+    ),
+    MCPServerConfig(
+        id="pipeline",
+        name="Pipeline Server",
+        command=_PYTHON,
+        args=["mcp_servers/pipeline_server.py"],
+        env={},
+        enabled=True,
+    ),
+    MCPServerConfig(
+        id="git_project",
+        name="Git Project Server",
+        command=_PYTHON,
+        args=["mcp_servers/git_server.py"],
+        env={},
+        enabled=True,
+    ),
+    MCPServerConfig(
+        id="filesystem",
+        name="Filesystem Server",
+        command=_PYTHON,
+        args=["mcp_servers/filesystem_server.py"],
+        env={},
+        enabled=True,
+    ),
+]
+
+
 class MCPRegistry:
     """Manages persistence of MCP server configurations"""
 
@@ -32,37 +79,8 @@ class MCPRegistry:
     @classmethod
     def load(cls, path: str = DEFAULT_PATH) -> "MCPRegistry":
         if not os.path.exists(path):
-            # Create default configuration with our local server
-            default_store = MCPRegistryStore(
-                servers=[
-                    MCPServerConfig(
-                        id="local_demo",
-                        name="Local Demo Server",
-                        command="python",
-                        args=["mcp_servers/demo_server.py"],
-                        env={},
-                        enabled=True
-                    ),
-                    MCPServerConfig(
-                        id="scheduler",
-                        name="Scheduler Server",
-                        command="python",
-                        args=["mcp_servers/scheduler/scheduler_server.py"],
-                        env={},
-                        enabled=True
-                    ),
-                    MCPServerConfig(
-                        id="pipeline",
-                        name="Pipeline Server",
-                        command="python",
-                        args=["mcp_servers/pipeline_server.py"],
-                        env={},
-                        enabled=True
-                    )
-                ]
-            )
             registry = cls()
-            registry._store = default_store
+            registry._store = MCPRegistryStore(servers=list(_BUILTIN_SERVERS))
             registry.save(path)
             return registry
 
@@ -72,11 +90,30 @@ class MCPRegistry:
                 store = MCPRegistryStore(**data)
                 registry = cls()
                 registry._store = store
-                return registry
         except Exception:
             registry = cls()
             registry._store = MCPRegistryStore(servers=[])
-            return registry
+
+        # Ensure all built-in servers are present; also sync command/args in case the
+        # Python interpreter path changed (e.g. after re-creating the virtualenv).
+        builtin_map = {b.id: b for b in _BUILTIN_SERVERS}
+        changed = False
+        existing_ids = {s.id for s in registry._store.servers}
+        for bid, builtin in builtin_map.items():
+            if bid not in existing_ids:
+                registry._store.servers.append(builtin)
+                changed = True
+            else:
+                # Update command/args for existing builtins (preserves enabled/env/etc.)
+                for s in registry._store.servers:
+                    if s.id == bid and (s.command != builtin.command or s.args != builtin.args):
+                        s.command = builtin.command
+                        s.args = builtin.args
+                        changed = True
+        if changed:
+            registry.save(path)
+
+        return registry
 
     def __init__(self) -> None:
         self._store = MCPRegistryStore()

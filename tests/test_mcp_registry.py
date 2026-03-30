@@ -127,12 +127,17 @@ class TestPersistence:
         MCPRegistry.load(path)
         assert os.path.exists(path)
 
-    def test_load_corrupt_json_returns_empty(self, tmp_path):
+    def test_load_corrupt_json_returns_builtins(self, tmp_path):
+        # Corrupt JSON triggers fallback to empty store, then builtins are upserted.
         path = str(tmp_path / "bad.json")
         with open(path, "w") as f:
             f.write("not valid json {{{")
         r = MCPRegistry.load(path)
-        assert r.get_all() == []
+        ids = {s.id for s in r.get_all()}
+        # All builtin servers must be present after recovery
+        assert "local_demo" in ids
+        assert "scheduler" in ids
+        assert "git_project" in ids
 
     def test_load_multiple_servers(self, tmp_path):
         path = str(tmp_path / "multi.json")
@@ -142,4 +147,11 @@ class TestPersistence:
         r.save(path)
 
         r2 = MCPRegistry.load(path)
-        assert len(r2.get_all()) == 3
+        ids = {s.id for s in r2.get_all()}
+        # User servers are preserved
+        assert "s0" in ids
+        assert "s1" in ids
+        assert "s2" in ids
+        # Builtins are also injected
+        assert "local_demo" in ids
+        assert "git_project" in ids

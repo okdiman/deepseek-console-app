@@ -118,7 +118,14 @@ Additional constraints:
 3. **Stream LLM response** — handles tool calls inline; if tools are called, re-enters the stream loop
 4. **after_stream hooks** — background work (auto-title generation, etc.)
 
-Concrete agents (`GeneralAgent`, `AndroidAgent`, `BackgroundAgent`) differ only in their system prompts.
+Concrete agents differ only in their system prompts and hook stacks:
+
+| Agent | Hook stack | Entry points |
+|-------|-----------|--------------|
+| `GeneralAgent` | Memory, Profile, Invariants, TaskState, AutoTitle | Web UI default |
+| `PythonAgent` | Rag, Memory, DialogueTask, Profile, Invariants, AutoTitle | Web UI "Python" option |
+| `DevHelpAgent` | Rag | `/help <question>` (console + web) |
+| `BackgroundAgent` | *(none)* | Scheduler background tasks |
 
 ### Hook System
 
@@ -130,6 +137,8 @@ All hooks inherit `AgentHook` (`agents/hooks/base.py`) with three async methods:
 Active hooks are assembled by `web/state.py → get_agent()` and injected via the constructor.
 
 `PythonAgent` hook stack (in order): `RagHook → MemoryInjectionHook → DialogueTaskHook → UserProfileHook → InvariantGuardHook → AutoTitleHook`
+
+`DevHelpAgent` hook stack: `RagHook` (only — no memory/profile hooks to keep answers doc-focused)
 
 ### Dialogue Task Memory (Day 25)
 
@@ -374,3 +383,6 @@ Tests use `pytest` with no mocking of databases (scheduler uses real SQLite temp
 | `test_rag_citations.py` | `assess_confidence`, `format_citation_block`, config defaults |
 | `test_dialogue_task.py` | `DialogueTask`: apply_marker, get_injection, persistence |
 | `test_dialogue_task_hook.py` | `DialogueTaskHook`: before_stream injection, after_stream marker parsing |
+| `test_git_server.py` | git MCP tools: branch, commits, changed files, diff, project tree |
+| `test_dev_help_agent.py` | `DevHelpAgent`: hook composition, system prompt |
+| `test_filesystem_server.py` | two-phase filesystem tools: read, propose, apply, discard |

@@ -44,6 +44,7 @@ deepseek_chat/agents/
 ├── strategies.py          — UnifiedStrategy: context window management
 ├── general_agent.py       — GeneralAgent (default for web UI)
 ├── python_agent.py        — PythonAgent (Python/code-focused)
+├── dev_help_agent.py      — DevHelpAgent (project documentation assistant)
 ├── background_agent.py    — BackgroundAgent (scheduler tasks, no hooks)
 └── hooks/
     ├── base.py             — AgentHook ABC
@@ -267,9 +268,33 @@ If `agent._skip_after_stream_markers` is set (by `web/streaming.py` which proces
 | Agent | Hooks | Use case |
 |-------|-------|---------|
 | `GeneralAgent` | MemoryInjection, InvariantGuard, UserProfile, TaskState, AutoTitle | Default web UI agent |
-| `PythonAgent` | MemoryInjection, DialogueTask, UserProfile, InvariantGuard, Rag | Python / code-focused conversations with RAG |
+| `PythonAgent` | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard, AutoTitle | Python / code-focused conversations with RAG |
+| `DevHelpAgent` | Rag | Project documentation assistant; `/help <question>` in console and web |
 | `BackgroundAgent` | *(none)* | Scheduler tasks; minimal, no UI hooks |
 | `RagChatAgent` (demo) | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard | RAG mini-chat experiment |
+
+### DevHelpAgent
+
+`dev_help_agent.py` — developer assistant that can both answer questions about the project and make changes to it.
+
+**Hook stack:** `[RagHook]` — only RAG, no memory/profile/title hooks.
+
+**Capabilities:**
+- Answers questions using RAG (project docs + source files)
+- Reads git state (branch, commits, diffs) via `git_project` MCP tools
+- Reads project files via `filesystem` MCP tools (`read_file`, `list_directory`, `search_in_files`)
+- Proposes and applies code changes via the two-phase filesystem protocol
+
+**Two-phase write protocol (enforced by system prompt):**
+1. `read_file` before any edit
+2. `propose_edit` / `propose_write` → shows diff, returns `proposal_id`
+3. Wait for user confirmation ("yes", "apply", "go ahead")
+4. `apply_change(proposal_id)` → writes to disk
+5. `run_tests` → verify nothing broke
+
+**Invocation:**
+- Console: `/help <question>` — ephemeral session, does not pollute main chat history
+- Web: select `dev_help` from the agent dropdown
 
 ---
 

@@ -1,6 +1,7 @@
 import aiohttp
 
 from ..agents.python_agent import PythonAgent
+from ..agents.dev_help_agent import DevHelpAgent
 from ..core.client import DeepSeekClient
 from ..core.session import ChatSession
 from ..core.stream_printer import StreamPrinter
@@ -17,17 +18,34 @@ class ConsoleApp:
 
     def print_welcome(self) -> None:
         print("=" * 60)
-        print("🚀 DeepSeek Chat")
+        print("DeepSeek Chat")
         print("=" * 60)
         print("Commands:")
         print("- Type any question to get AI response")
-        print("- /help - Show this help")
-        print("- /clear - Clear chat context")
-        print("- /context - Show chat history size")
-        print("- /provider - Show current provider and model")
-        print("- /models - List available models for current provider")
-        print("- /quit or /exit - Exit application")
+        print("- /help               - Show this help")
+        print("- /help <question>    - Ask about the project (uses project docs)")
+        print("- /clear              - Clear chat context")
+        print("- /context            - Show chat history size")
+        print("- /provider           - Show current provider and model")
+        print("- /models             - List available models for current provider")
+        print("- /quit or /exit      - Exit application")
         print("=" * 60)
+
+    async def _handle_help_question(self, question: str) -> None:
+        """Answer a /help <question> using the DevHelpAgent (RAG over project docs)."""
+        from ..core.session import ChatSession
+        help_session = ChatSession(max_messages=10)
+        help_agent = DevHelpAgent(self._client, help_session)
+        print("(dev-help) AI: ", end="", flush=True)
+        printer = StreamPrinter(stall_seconds=3)
+        printer.start()
+        try:
+            async for chunk in help_agent.stream_reply(question):
+                printer.on_chunk(chunk)
+        finally:
+            printer.stop()
+            await printer.wait_closed()
+        print()
 
     def _handle_provider_command(self) -> None:
         config = self._client.config
@@ -87,6 +105,12 @@ class ConsoleApp:
                     break
                 if user_input.lower() in ["/help", "help"]:
                     self.print_welcome()
+                    continue
+
+                if user_input.lower().startswith("/help "):
+                    question = user_input[6:].strip()
+                    if question:
+                        await self._handle_help_question(question)
                     continue
 
                 if user_input.lower() in ["/clear", "clear"]:

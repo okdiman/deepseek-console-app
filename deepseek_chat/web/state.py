@@ -6,6 +6,7 @@ from typing import Dict
 
 from ..agents.python_agent import PythonAgent
 from ..agents.general_agent import GeneralAgent
+from ..agents.dev_help_agent import DevHelpAgent
 from ..core.client import DeepSeekClient
 from ..core.config import ClientConfig, load_config
 from ..core.session import ChatSession
@@ -48,6 +49,7 @@ _task_machines: Dict[str, TaskStateMachine] = {}
 _AGENT_REGISTRY = {
     "python": "Python Agent",
     "general": "General Agent",
+    "dev_help": "Dev Help Agent",
 }
 
 _DEFAULT_AGENT_ID = "general"
@@ -78,12 +80,14 @@ def set_provider(provider: str, session_id: str = "default") -> None:
     _session_clients[session_id] = DeepSeekClient(new_config)
 
 
-def get_agent(agent_id: str, session_id: str = "default") -> PythonAgent | GeneralAgent:
+def get_agent(agent_id: str, session_id: str = "default") -> PythonAgent | GeneralAgent | DevHelpAgent:
     session = get_session(session_id)
     task_machine = get_task_machine(session_id)
     client = get_client(session_id)
     if agent_id == "python":
         return PythonAgent(client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
+    if agent_id == "dev_help":
+        return DevHelpAgent(client, session, mcp_manager=_mcp_manager)
     return GeneralAgent(client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
 
 
