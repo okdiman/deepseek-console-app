@@ -31,10 +31,13 @@ def test_dev_help_agent_has_rag_hook():
     assert RagHook in hook_types
 
 
-def test_dev_help_agent_has_exactly_one_hook():
-    # DevHelpAgent is minimal: only RagHook (no memory/profile/title hooks)
+def test_dev_help_agent_has_rag_and_auto_title_hooks():
+    from deepseek_chat.agents.hooks import AutoTitleHook
     agent = _make_agent()
-    assert len(agent._hooks) == 1
+    hook_types = [type(h) for h in agent._hooks]
+    assert RagHook in hook_types
+    assert AutoTitleHook in hook_types
+    assert len(agent._hooks) == 2
 
 
 def test_dev_help_agent_accepts_mcp_manager():

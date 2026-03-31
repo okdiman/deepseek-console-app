@@ -79,9 +79,11 @@ Two-phase read/write access to the project. All write operations require an expl
 | `run_tests(test_path)` | Run pytest on the project or a specific file/dir |
 
 **Safety guarantees:**
-- All paths are validated against `_PROJECT_ROOT` — path traversal attempts are rejected
-- Proposals are held in-memory in the MCP subprocess; `apply_change` is the only write gate
+- All paths are validated against `_PROJECT_ROOT` — path traversal and symlink-escape attempts are rejected
+- Proposals are persisted to `deepseek_chat/core/change_store.py` (a shared JSON file at `DATA_DIR/pending_changes.json`) rather than held in-memory; `apply_change` is the only write gate
 - `propose_edit` validates that `old_string` appears **exactly once** before creating a proposal — ambiguous edits are rejected upfront
+
+**PYTHONPATH:** The `filesystem` server needs to import `deepseek_chat` (for `change_store`). `MCPRegistry` sets `env={"PYTHONPATH": PROJECT_ROOT}` in the builtin config, and `MCPManager` merges this into the subprocess environment at startup — no `sys.path` hacks inside the script.
 
 **Run standalone:**
 ```bash

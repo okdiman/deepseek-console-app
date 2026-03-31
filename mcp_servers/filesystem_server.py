@@ -14,14 +14,10 @@ import uuid
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
-
-# change_store lives in the main package; add project root to sys.path
-_PROJECT_ROOT = Path(__file__).parent.parent
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
-
 from deepseek_chat.core import change_store
 from deepseek_chat.core.change_store import Proposal
+
+_PROJECT_ROOT = Path(__file__).parent.parent
 
 mcp = FastMCP("Filesystem Server")
 

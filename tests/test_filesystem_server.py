@@ -233,3 +233,28 @@ def test_apply_write_creates_parent_dirs(isolated_env):
     pid = cs.list_all()[0].id
     fs_mod.apply_change(pid)
     assert (isolated_env / "deep" / "nested" / "file.py").read_text() == "content\n"
+
+
+# ── symlink escape ─────────────────────────────────────────────────────────────
+
+def test_read_file_symlink_escape(isolated_env):
+    """A symlink inside the project pointing outside must be blocked."""
+    # Place the target one level above tmp_path (outside the patched _PROJECT_ROOT).
+    outside = isolated_env.parent / "outside_secret.txt"
+    outside.write_text("secret content")
+    link = isolated_env / "evil_link.txt"
+    link.symlink_to(outside)
+    result = fs_mod.read_file("evil_link.txt")
+    # The resolved path of the symlink escapes the project root → must be blocked.
+    assert "escape" in result.lower() or "error" in result.lower()
+
+
+def test_propose_write_symlink_escape(isolated_env):
+    """propose_write via a path that resolves outside project root must be blocked."""
+    outside_dir = isolated_env.parent / "outside_dir"
+    outside_dir.mkdir(exist_ok=True)
+    link = isolated_env / "link_dir"
+    link.symlink_to(outside_dir)
+    result = fs_mod.propose_write("link_dir/evil.py", "bad content")
+    assert "escape" in result.lower() or "error" in result.lower()
+    assert len(cs.list_all()) == 0

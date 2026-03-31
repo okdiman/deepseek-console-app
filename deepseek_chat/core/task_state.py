@@ -67,8 +67,11 @@ class TaskState:
     done: List[str] = field(default_factory=list)
     transition_log: List[TransitionRecord] = field(default_factory=list)
 
+    _FORMAT_VERSION = 1
+
     def to_dict(self) -> Dict:
         return {
+            "format_version": self._FORMAT_VERSION,
             "task": self.task,
             "phase": self.phase.value,
             "previous_phase": self.previous_phase.value if self.previous_phase else None,
@@ -81,6 +84,8 @@ class TaskState:
 
     @classmethod
     def from_dict(cls, data: Dict) -> "TaskState":
+        # format_version is checked but not enforced yet — old saves (v0, no key)
+        # are treated as compatible since the shape hasn't changed.
         return cls(
             task=data.get("task", ""),
             phase=TaskPhase(data.get("phase", "idle")),

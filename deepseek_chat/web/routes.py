@@ -76,7 +76,7 @@ async def switch_provider(
         )
     try:
         set_provider(payload.provider, session_id)
-        reset_session_cost_usd()
+        reset_session_cost_usd(session_id)
         config = get_config(session_id)
         return JSONResponse({"ok": True, "provider": config.provider, "model": config.model})
     except ValueError as e:
@@ -88,7 +88,7 @@ async def clear(session_id: str = Query("default")) -> JSONResponse:
     session = get_session(session_id)
     config = get_config(session_id)
     session.clear()
-    reset_session_cost_usd()
+    reset_session_cost_usd(session_id)
     # Clear working memory (session-scoped), keep long-term memory
     memory = MemoryStore.load()
     memory.clear_working_memory()

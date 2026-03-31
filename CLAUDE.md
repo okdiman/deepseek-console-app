@@ -109,6 +109,7 @@ Additional constraints:
 - Config overrides use `dataclasses.replace(_config, ...)` — never manually reconstruct `ClientConfig`
 - All imports at module top level — no inline imports inside functions or loops
 - `BaseAgent._skip_after_stream_markers` is a declared class attribute, not duck-injected
+- `core/paths.py` exports `PROJECT_ROOT` (absolute, anchored to the source file) and `DATA_DIR`; use these — never hardcode paths or use `os.getcwd()`
 
 ### Agent Pipeline
 
@@ -124,7 +125,7 @@ Concrete agents differ only in their system prompts and hook stacks:
 |-------|-----------|--------------|
 | `GeneralAgent` | Memory, Profile, Invariants, TaskState, AutoTitle | Web UI default |
 | `PythonAgent` | Rag, Memory, DialogueTask, Profile, Invariants, AutoTitle | Web UI "Python" option |
-| `DevHelpAgent` | Rag | `/help <question>` (console + web) |
+| `DevHelpAgent` | Rag, AutoTitle | `/help <question>` (console + web) |
 | `BackgroundAgent` | *(none)* | Scheduler background tasks |
 
 ### Hook System
@@ -138,7 +139,7 @@ Active hooks are assembled by `web/state.py → get_agent()` and injected via th
 
 `PythonAgent` hook stack (in order): `RagHook → MemoryInjectionHook → DialogueTaskHook → UserProfileHook → InvariantGuardHook → AutoTitleHook`
 
-`DevHelpAgent` hook stack: `RagHook` (only — no memory/profile hooks to keep answers doc-focused)
+`DevHelpAgent` hook stack: `RagHook → AutoTitleHook` (no memory/profile hooks to keep answers doc-focused)
 
 ### Dialogue Task Memory (Day 25)
 
@@ -175,9 +176,9 @@ The agent embeds special markers in its output (`[STEP_DONE]`, `[READY_FOR_VALID
 
 ### MCP (Model Context Protocol) Tool Management
 
-- `MCPManager` (`core/mcp_manager.py`) — manages stdio subprocess lifecycle for external tool servers, auto-restarts on crash (up to 5 times), prefix-routes tools as `server_id__tool_name`
-- `MCPRegistry` (`core/mcp_registry.py`) — persists server configs to `~/.deepseek_chat/mcp_servers.json`
-- Tool execution is integrated directly into the `BaseAgent` stream loop
+- `MCPManager` (`core/mcp/manager.py`) — manages stdio subprocess lifecycle for external tool servers; merges server `env` on top of `os.environ` at startup; auto-restarts on crash (up to 5 times); prefix-routes tools as `server_id__tool_name`
+- `MCPRegistry` (`core/mcp/registry.py`) — persists server configs to `~/.deepseek_chat/mcp_servers.json`; syncs `command`, `args`, and `env` of builtin servers on every load (ensures PYTHONPATH and interpreter path stay correct after venv changes)
+- Tool execution is integrated directly into the `BaseAgent` stream loop with a **30-second `asyncio.wait_for` timeout** per tool call
 
 ### Global Persistent State
 
@@ -191,6 +192,7 @@ All state lives in `~/.deepseek_chat/`:
 | `mcp_servers.json` | MCP server configs | No |
 | `scheduler.db` | SQLite: scheduled tasks + history | No |
 | `dialogue_task.json` | Dialogue task memory (goal, clarifications, constraints, topics) | Yes (in `rag_chat.py`) |
+| `pending_changes.json` | Filesystem proposal blobs (shared between MCP subprocess and app) | No |
 
 RAG index lives alongside other app state in `data/` (or `DEEPSEEK_DATA_DIR`):
 | File | Purpose |
@@ -225,11 +227,12 @@ Persistence file formats:
 
 ### Web Layer (`web/`)
 
-- `app.py` — FastAPI app; lifespan starts MCP servers and scheduler runner; rate limiter (`slowapi`) + `APIKeyMiddleware` applied at startup; `/health` endpoint (no auth); binds to `SERVICE_HOST`/`SERVICE_PORT`
-- `middleware.py` — `APIKeyMiddleware`: checks `X-API-Key` header when `SERVICE_API_KEY` is set; exempts `/`, `/static/*`, `/health`
+- `app.py` — FastAPI app; lifespan starts MCP servers and scheduler runner; rate limiter (`slowapi`) + `APIKeyMiddleware` applied at startup; CORS middleware (localhost by default, `SERVICE_CORS_ORIGINS` env override); `/health` endpoint (no auth, returns `mcp_servers_active` + `data_dir_writable`); warns if `WEB_CONCURRENCY > 1`; checks `is_index_stale()` at startup; binds to `SERVICE_HOST`/`SERVICE_PORT`
+- `middleware.py` — `APIKeyMiddleware`: checks `X-API-Key` header when `SERVICE_API_KEY` is set; exempts `/`, `/static/*`, `/health`; logs `401` rejections at `WARNING` level
 - `routes.py` — all HTTP/SSE endpoints; includes `GET /config/provider` and `POST /config/provider` for runtime switching; `/stream` enforces `MAX_INPUT_CHARS` limit
 - `streaming.py` — SSE generator with task marker parsing; `_collect_task_markers` and `_apply_task_markers` are pure functions (testable without HTTP context)
-- `state.py` — singletons for config, client, sessions, task machines, MCP; `get_agent()` factory; `set_provider(provider)` for runtime provider switching
+- `state.py` — singletons for config, client, sessions, task machines, MCP; `get_agent()` factory; `set_provider(provider)` for runtime provider switching; `get_session_async()` / `get_task_machine_async()` use `asyncio.Lock` + double-checked locking to prevent duplicate session creation under concurrent requests
+- `cost_tracker.py` — per-session cost accumulator (`defaultdict(float)` keyed by `session_id`); no global state, no cross-session bleed
 - Frontend: vanilla JS (`static/app.js`, ~48KB) + CSS; no build step needed
 
 ### Provider Switching (Day 26–27)

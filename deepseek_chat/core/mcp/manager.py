@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Dict, List, Optional, Any
 
@@ -109,10 +110,14 @@ class MCPManager:
             # stdio (default)
             if not config.command:
                 raise ValueError(f"MCP server '{config.id}': transport=stdio requires a command")
+            # Merge config.env with the current process environment so that
+            # PATH, HOME, and venv-activated variables are all inherited.
+            # config.env entries take precedence (useful for PYTHONPATH overrides).
+            merged_env = {**os.environ, **config.env} if config.env else None
             server_params = StdioServerParameters(
                 command=config.command,
                 args=config.args,
-                env=config.env or None,
+                env=merged_env,
             )
             async with stdio_client(server_params) as (read, write):
                 yield read, write

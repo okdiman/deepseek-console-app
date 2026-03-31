@@ -13,7 +13,9 @@ from .state import (
     get_client,
     get_config,
     get_session,
+    get_session_async,
     get_task_machine,
+    get_task_machine_async,
 )
 from .cost_tracker import add_session_cost_usd, get_session_cost_usd
 
@@ -134,10 +136,10 @@ async def stream_events(
     from ..core.task_state import TaskPhase
 
     config = get_config(session_id)
-    session = get_session(session_id)
+    session = await get_session_async(session_id)
     client = get_client(session_id)
     selected_agent = get_agent(agent_id, session_id=session_id)
-    tm = get_task_machine(session_id)
+    tm = await get_task_machine_async(session_id)
 
     try:
         accumulated_text = ""
@@ -187,8 +189,8 @@ async def stream_events(
             stats["total_tokens"] = metrics.total_tokens
             stats["cost_usd"] = metrics.cost_usd
             if metrics.cost_usd is not None:
-                add_session_cost_usd(metrics.cost_usd)
-            stats["session_cost_usd"] = get_session_cost_usd()
+                add_session_cost_usd(metrics.cost_usd, session_id)
+            stats["session_cost_usd"] = get_session_cost_usd(session_id)
 
         if stats:
             yield sse_event({"stats": stats})

@@ -23,6 +23,7 @@ Gracefully disabled when:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -84,8 +85,8 @@ class RagHook(AgentHook):
         self._last_failed_check: float = 0.0
         self.last_chunks: list = []  # last retrieved chunks; readable by the CLI for display
 
-    def _check_ready(self) -> bool:
-        """Check: is Ollama running and index non-empty?"""
+    async def _check_ready(self) -> bool:
+        """Check: is Ollama running and index non-empty? Runs blocking I/O in executor."""
         if not _RAG_ENABLED:
             return False
         try:
@@ -96,7 +97,9 @@ class RagHook(AgentHook):
                 return False
 
             embedder = OllamaEmbeddingClient(config)
-            if not embedder.health_check():
+            loop = asyncio.get_event_loop()
+            reachable = await loop.run_in_executor(None, embedder.health_check)
+            if not reachable:
                 logger.warning("RagHook: Ollama not reachable, RAG disabled")
                 return False
 
@@ -122,7 +125,7 @@ class RagHook(AgentHook):
         if not self._ready:
             now = time.monotonic()
             if self._ready is None or now - self._last_failed_check >= _RECHECK_COOLDOWN:
-                self._ready = self._check_ready()
+                self._ready = await self._check_ready()
                 if not self._ready:
                     self._last_failed_check = now
 
@@ -153,9 +156,12 @@ class RagHook(AgentHook):
             if _QUERY_REWRITE_ENABLED:
                 query = await QueryRewriter(agent._client).rewrite(query)
 
-            # Step 2: embed
+            # Step 2: embed — run blocking urllib call in a thread pool executor
+            # so it doesn't stall the asyncio event loop during web serving.
             embedder = OllamaEmbeddingClient(config)
-            vec = embedder.embed([query])[0]
+            loop = asyncio.get_event_loop()
+            vecs = await loop.run_in_executor(None, embedder.embed, [query])
+            vec = vecs[0]
 
             # Step 3: fetch more candidates than needed (pre-rerank pool)
             pre_k = max(_PRE_RERANK_TOP_K, _TOP_K)

@@ -103,6 +103,8 @@ Tracks structured conversation state within a single session:
 
 `DialogueTaskHook.after_stream` parses these markers and calls `apply_marker()` after each response.
 
+**List cap:** Each list (`clarifications`, `constraints`, `explored_topics`, `unresolved_questions`) is capped at `_MAX_LIST_SIZE = 50` items. When a list exceeds the cap, the oldest entry is dropped (`list.pop(0)`). This prevents unbounded growth across very long sessions.
+
 **Cleared on `/clear`** — dialogue state is session-scoped.
 
 ---

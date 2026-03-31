@@ -6,6 +6,7 @@ Loads corpus → chunks → embeds (Ollama) → stores in SQLite.
 
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Literal, Optional
 
 from .chunkers import Chunk, FixedSizeChunker, StructureChunker
@@ -13,6 +14,24 @@ from .config import RagConfig, load_rag_config
 from .corpus import CORPUS_FILES, load_corpus_text
 from .embedder import OllamaEmbeddingClient
 from .store import clear_strategy, get_stats, init_db, upsert_chunks_bulk
+
+
+def is_index_stale(db_path: str) -> bool:
+    """Return True if any corpus file is newer than the RAG index DB.
+
+    Returns False when the DB doesn't exist yet (not yet indexed, not stale).
+    """
+    db = Path(db_path)
+    if not db.exists():
+        return False  # not indexed yet — nothing to compare against
+    db_mtime = db.stat().st_mtime
+    for cf in CORPUS_FILES:
+        try:
+            if cf.path.exists() and cf.path.stat().st_mtime > db_mtime:
+                return True
+        except OSError:
+            continue
+    return False
 
 
 @dataclass

@@ -5,6 +5,7 @@ import os
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -61,6 +62,17 @@ async def _ensure_ollama_running(embedder_cls, config) -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # This app uses module-level singletons (sessions, MCP manager, etc.) and is
+    # designed for single-worker deployment only. Multiple workers would each have
+    # an isolated copy of all state, causing split-brain behaviour.
+    workers = int(os.getenv("WEB_CONCURRENCY", "1"))
+    if workers > 1:
+        logger.warning(
+            "WARNING: WEB_CONCURRENCY=%d detected. This app uses in-process singletons "
+            "and must run with exactly 1 worker. State will be inconsistent across workers.",
+            workers,
+        )
+
     # Start all enabled MCP servers on startup
     manager = get_mcp_manager()
     await manager.start_all()
@@ -68,12 +80,18 @@ async def lifespan(app: FastAPI):
     # Ensure Ollama is running, auto-starting it if needed
     from deepseek_chat.core.rag.config import load_rag_config
     from deepseek_chat.core.rag.embedder import OllamaEmbeddingClient
+    from deepseek_chat.core.rag.pipeline import is_index_stale
     from deepseek_chat.core.rag.store import get_stats
     _rag_config = load_rag_config()
     if await _ensure_ollama_running(OllamaEmbeddingClient, _rag_config):
         stats = get_stats(_rag_config.db_path)
         if stats["total"] > 0:
             logger.info("RAG: Ollama reachable, index has %d chunks — RagHook active", stats["total"])
+            if is_index_stale(_rag_config.db_path):
+                logger.warning(
+                    "RAG: corpus files are newer than the index — re-index recommended: "
+                    "python3 experiments/rag_compare/cli.py index"
+                )
         else:
             logger.warning("RAG: Ollama reachable but index is empty — run: python3 experiments/rag_compare/cli.py index")
     else:
@@ -113,6 +131,21 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(APIKeyMiddleware)
 
+# CORS: allow same-origin and localhost dev origins only.
+# SERVICE_CORS_ORIGINS env var overrides (comma-separated list of origins).
+_cors_origins_raw = os.getenv("SERVICE_CORS_ORIGINS", "").strip()
+_cors_origins = (
+    [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+    if _cors_origins_raw
+    else ["http://localhost:8000", "http://127.0.0.1:8000"]
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type", "X-API-Key"],
+)
+
 BASE_DIR = Path(__file__).parent.resolve()
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
@@ -121,12 +154,23 @@ app.include_router(router)
 
 @app.get("/health")
 async def health() -> JSONResponse:
-    """Liveness probe — returns service info without auth."""
+    """Liveness probe — returns service info and subsystem status without auth."""
+    from .state import get_mcp_manager
+    from deepseek_chat.core.paths import DATA_DIR
+
+    mcp_mgr = get_mcp_manager()
+    mcp_servers = list(mcp_mgr._sessions.keys())
+
+    data_dir_ok = DATA_DIR.exists() and os.access(DATA_DIR, os.W_OK)
+
+    status = "ok" if data_dir_ok else "degraded"
     return JSONResponse({
-        "status": "ok",
+        "status": status,
         "service": "deepseek-chat",
         "auth_enabled": bool(os.getenv("SERVICE_API_KEY", "").strip()),
         "rate_limit_per_minute": int(_rate_limit),
+        "mcp_servers_active": mcp_servers,
+        "data_dir_writable": data_dir_ok,
     })
 
 

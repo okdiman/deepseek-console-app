@@ -143,6 +143,8 @@ For each `CorpusFile`:
 
 This is a one-time (or on-change) operation. The index persists between app restarts.
 
+`is_index_stale(db_path)` — helper that compares the modification times of all corpus files against the DB file mtime. Returns `True` if any corpus file is newer than the index, indicating re-indexing is needed. Called at app startup (`web/app.py` lifespan) and emits a `WARNING` log if the index is stale.
+
 ---
 
 ## Step 6 — Runtime: RagHook
@@ -151,7 +153,9 @@ This is a one-time (or on-change) operation. The index persists between app rest
 
 ### Readiness check (lazy, once per process)
 
-On the first call, `_check_ready()` verifies:
+`_check_ready()` is **async**. Blocking network calls (`embedder.health_check()`) run in a thread pool via `asyncio.get_event_loop().run_in_executor(None, ...)` to avoid blocking the async event loop.
+
+On the first call it verifies:
 1. `RAG_ENABLED=true` (env)
 2. Index is non-empty (`get_stats().total > 0`)
 3. Ollama is reachable (`embedder.health_check()`)
@@ -181,7 +185,7 @@ Alternatively, `QueryRewriter.clean()` strips conversational filler ("can you te
 
 **Step 6c — Embed**
 
-The (possibly enriched/rewritten) query is embedded via Ollama → 1024-dim vector (qwen3-embedding:0.6b).
+The (possibly enriched/rewritten) query is embedded via `await loop.run_in_executor(None, embedder.embed, [query])` — non-blocking call to Ollama that produces a 1024-dim vector (qwen3-embedding:0.6b).
 
 **Step 6d — Fetch candidates**
 

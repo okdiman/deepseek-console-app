@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .base_agent import BaseAgent
-from .hooks import RagHook
+from .hooks import RagHook, AutoTitleHook
 
 SYSTEM_PROMPT = (
     "You are a developer assistant for this project (DeepSeek Console App). "
@@ -51,5 +51,5 @@ class DevHelpAgent(BaseAgent):
     SYSTEM_PROMPT = SYSTEM_PROMPT
 
     def __init__(self, client, session, mcp_manager=None):
-        hooks = [RagHook()]
+        hooks = [RagHook(), AutoTitleHook()]
         super().__init__(client, session, hooks=hooks, mcp_manager=mcp_manager)

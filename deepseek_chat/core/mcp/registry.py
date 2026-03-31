@@ -1,12 +1,15 @@
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
-from deepseek_chat.core.paths import DATA_DIR
+from deepseek_chat.core.paths import DATA_DIR, PROJECT_ROOT
 
 _PYTHON = sys.executable
+# PYTHONPATH entry so MCP subprocesses can import deepseek_chat without a sys.path hack.
+_PYTHONPATH = str(PROJECT_ROOT)
 
 
 class MCPServerConfig(BaseModel):
@@ -65,7 +68,7 @@ _BUILTIN_SERVERS: List[MCPServerConfig] = [
         name="Filesystem Server",
         command=_PYTHON,
         args=["mcp_servers/filesystem_server.py"],
-        env={},
+        env={"PYTHONPATH": _PYTHONPATH},
         enabled=True,
     ),
 ]
@@ -104,12 +107,21 @@ class MCPRegistry:
                 registry._store.servers.append(builtin)
                 changed = True
             else:
-                # Update command/args for existing builtins (preserves enabled/env/etc.)
+                # Sync command, args, and env for existing builtins.
+                # command/args: may change after venv recreation.
+                # env: may gain new entries (e.g. PYTHONPATH added in a later version).
                 for s in registry._store.servers:
-                    if s.id == bid and (s.command != builtin.command or s.args != builtin.args):
-                        s.command = builtin.command
-                        s.args = builtin.args
-                        changed = True
+                    if s.id == bid:
+                        needs_update = (
+                            s.command != builtin.command
+                            or s.args != builtin.args
+                            or s.env != builtin.env
+                        )
+                        if needs_update:
+                            s.command = builtin.command
+                            s.args = builtin.args
+                            s.env = builtin.env
+                            changed = True
         if changed:
             registry.save(path)
 

@@ -129,16 +129,22 @@ def get_tasks(
     return [_row_to_dict(r) for r in rows]
 
 
+_UPDATABLE_COLUMNS = frozenset({"status", "next_run_at", "last_run_at", "payload", "schedule", "name"})
+
+
 def update_task(task_id: str, db_path: str = DB_PATH, **fields) -> bool:
     """Update specific fields of a task. Returns True if row was updated."""
     if not fields:
         return False
-    allowed = {"status", "next_run_at", "last_run_at", "payload", "schedule", "name"}
-    updates = {k: v for k, v in fields.items() if k in allowed}
+    # Only keep known-safe column names (strict allowlist — no f-string interpolation).
+    updates = {k: v for k, v in fields.items() if k in _UPDATABLE_COLUMNS}
     if not updates:
         return False
 
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    # Build the SET clause from the allowlist only; column names are safe to embed.
+    # Values are always passed as bound parameters to prevent injection.
+    set_parts = [f"{col} = ?" for col in updates]
+    set_clause = ", ".join(set_parts)
     values = list(updates.values()) + [task_id]
 
     conn = sqlite3.connect(db_path)

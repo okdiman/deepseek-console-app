@@ -67,6 +67,8 @@ task_results (
 
 WAL journal mode is always enabled. Foreign keys cascade: deleting a task removes all its results.
 
+**SQL safety:** `update_task()` uses a `_UPDATABLE_COLUMNS = frozenset({...})` allowlist to validate column names before building dynamic SQL. Column names come from the allowlist (safe to embed), values are always parameterized — no SQL injection possible.
+
 ---
 
 ## scheduler_utils.py — Schedule formats

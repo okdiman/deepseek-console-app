@@ -12,8 +12,9 @@ deepseek_chat/core/
 ├── client.py        — DeepSeekClient: streaming HTTP client
 ├── session.py       — ChatSession: in-memory conversation history
 ├── task_state.py    — TaskStateMachine: FSM for structured task execution
+├── change_store.py  — Shared JSON store for filesystem proposal blobs (file-locked)
 ├── agent_factory.py — build_background_agent(), build_client(), build_manager()
-├── paths.py         — DATA_DIR constant
+├── paths.py         — PROJECT_ROOT and DATA_DIR constants
 ├── stream_printer.py — StreamPrinter: console streaming with stall indicator
 │
 ├── memory/          — MemoryStore, UserProfile, InvariantStore, DialogueTask
@@ -177,6 +178,10 @@ idle → planning → execution → validation → done
 
 `get_prompt_injection()` returns a `[ACTIVE TASK STATE]` block injected into the system prompt by `TaskStateHook`. Contains phase, plan progress, and strict behavioral rules (e.g. "do NOT start execution while in PLANNING").
 
+### Serialization
+
+`to_dict()` includes `"format_version": 1` alongside phase, step counters, and plan. This version field enables future schema migrations without breaking existing saved states.
+
 ### Persistence
 
 `save(path)` / `load(path)` — atomic JSON write. State is stored per-session in the web layer via `web/state.py`.
@@ -199,9 +204,14 @@ Callers must call `await manager.start_all()` before using the agent and `await 
 
 ## paths.py
 
-Single constant: `DATA_DIR = Path(os.getenv("DEEPSEEK_DATA_DIR", "data"))`.
+Two public constants:
 
-All persistence paths in `core/memory/` modules default to `DATA_DIR / "*.json"` (i.e. `~/.deepseek_chat/`). Override via `DEEPSEEK_DATA_DIR` env var for testing.
+```python
+PROJECT_ROOT = Path(__file__).parent.parent.parent  # absolute path to repo root
+DATA_DIR     = Path(os.getenv("DEEPSEEK_DATA_DIR", str(PROJECT_ROOT / "data")))
+```
+
+`PROJECT_ROOT` is anchored to the source file location (not `os.getcwd()`), so it remains correct regardless of the working directory — including when imported by MCP subprocesses. All persistence paths in `core/memory/` modules default to `DATA_DIR / "*.json"`. Override `DATA_DIR` via `DEEPSEEK_DATA_DIR` env var for testing.
 
 ---
 

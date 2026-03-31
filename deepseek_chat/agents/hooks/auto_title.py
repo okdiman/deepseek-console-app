@@ -3,9 +3,12 @@ AutoTitleHook — auto-generates a short session title after initial messages.
 """
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, TYPE_CHECKING
 
 from .base import AgentHook
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ..base_agent import BaseAgent
@@ -59,5 +62,5 @@ class AutoTitleHook(AgentHook):
             new_title = "".join(response_parts).strip().strip('"').strip("'")
             if new_title:
                 agent._session.summary = new_title
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("AutoTitleHook: title generation failed: %s", exc)

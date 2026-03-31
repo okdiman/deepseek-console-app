@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass
 from typing import AsyncGenerator, List, Optional
@@ -34,6 +35,16 @@ class BaseAgent:
         hooks: Optional[List[AgentHook]] = None,
         mcp_manager=None,
     ) -> None:
+        # Hook execution order matters:
+        #   before_stream:  hooks[0] → hooks[1] → ... (each receives the prompt modified by the previous)
+        #   intercept_stream: first hook returning a non-None value short-circuits the rest
+        #   after_stream:   hooks[0] → hooks[1] → ... (independent, all run)
+        #
+        # Canonical order for PythonAgent:
+        #   RagHook → MemoryInjectionHook → DialogueTaskHook → UserProfileHook
+        #     → InvariantGuardHook → AutoTitleHook
+        # RAG must come first so downstream hooks see the enriched system prompt.
+        # AutoTitleHook must come last (after_stream only, no prompt side-effects).
         self._client = client
         self._session = session
         self._hooks = hooks or []
@@ -122,8 +133,14 @@ class BaseAgent:
                                     args_dict = {}
                                 
                                 try:
-                                    result = await mcp_manager.execute_tool(fn_name, args_dict)
+                                    result = await asyncio.wait_for(
+                                        mcp_manager.execute_tool(fn_name, args_dict),
+                                        timeout=30.0,
+                                    )
                                     yield f"✅ *Tool returned result*\n\n"
+                                except asyncio.TimeoutError:
+                                    result = f"Tool '{fn_name}' timed out after 30 seconds"
+                                    yield f"❌ *Tool timed out (30s)*\n\n"
                                 except Exception as e:
                                     result = f"Error executing tool: {e}"
                                     yield f"❌ *Tool failed: {e}*\n\n"

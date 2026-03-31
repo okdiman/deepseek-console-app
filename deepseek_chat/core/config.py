@@ -69,7 +69,11 @@ def load_config() -> ClientConfig:
         price_completion = 0.0
         _num_ctx_raw = os.getenv("OLLAMA_NUM_CTX", "").strip()
         if _num_ctx_raw:
-            ollama_num_ctx = int(_num_ctx_raw)
+            try:
+                ollama_num_ctx = int(_num_ctx_raw)
+            except ValueError:
+                print(f"Error: OLLAMA_NUM_CTX must be an integer, got: {_num_ctx_raw!r}")
+                sys.exit(1)
     elif provider == "groq":
         api_key = os.getenv("GROQ_API_KEY", "")
         if not api_key:

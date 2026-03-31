@@ -190,10 +190,10 @@ The application ships seven concrete hooks. Each inherits `AgentHook` and is reg
 **How (before_stream pipeline):**
 
 1. Reset `self.suppress_tools = False`
-2. Check readiness (Ollama reachable + index non-empty); skip silently if not ready
+2. Check readiness via `await _check_ready()` (Ollama reachable + index non-empty); skip silently if not ready. Blocking calls (`health_check()`, `embed()`) run in a thread pool via `run_in_executor` to avoid blocking the event loop.
 3. Enrich short queries (≤12 words) with the current `DialogueTask` goal
 4. Optionally rewrite query via LLM (`RAG_QUERY_REWRITE_ENABLED`)
-5. Embed query via Ollama
+5. Embed query via Ollama (`await loop.run_in_executor(None, embedder.embed, [query])`)
 6. Fetch `RAG_PRE_RERANK_TOP_K` candidates from SQLite index
 7. Rerank/filter to `RAG_TOP_K` chunks
 8. Assess confidence (`empty` / `weak` / `uncertain` / `confident`)
@@ -233,6 +233,8 @@ See `deepseek_chat/core/rag/_HOW_IT_WORKS.md` for the full RAG pipeline internal
 
 The even-message-count guard prevents the hook from firing on incomplete exchanges.
 
+**Error handling:** LLM errors during title generation are logged at `WARNING` level via `logger.warning(...)` and do not propagate — a failed title generation is non-fatal.
+
 **Phases:** `after_stream` only. `before_stream` is a no-op.
 
 ---
@@ -257,6 +259,13 @@ Hooks run in the order they are passed to `BaseAgent`. Each `before_stream` call
 3. DialogueTaskHook     ← appends dialogue task block to system prompt
 4. UserProfileHook      ← appends profile block to system prompt
 5. InvariantGuardHook   ← injects invariants as late system message
+6. AutoTitleHook        ← no-op in before_stream; fires title generation after
+```
+
+**DevHelpAgent** (documentation assistant):
+```
+1. RagHook              ← retrieves context, appends citation block, may suppress tools
+2. AutoTitleHook        ← no-op in before_stream; fires title generation after
 ```
 
 `RagHook` runs first so all downstream hooks see the system prompt already enriched with retrieved context.

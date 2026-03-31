@@ -52,6 +52,8 @@ Stores server configurations. Each entry is an `MCPServerConfig`:
 
 CRUD operations: `add_server()`, `remove_server()`, `get_server()`, `list_servers()`.
 
+**Builtin server sync:** On every `load()`, the registry compares all builtin server entries against what's stored on disk. If `command`, `args`, or `env` differ (e.g. after venv recreation or adding a new env var in code), the stored entry is updated and the file is re-saved. This ensures builtin configs always stay in sync with the code — including `env` (e.g. the `filesystem` server's `PYTHONPATH`).
+
 ---
 
 ## MCPManager (`manager.py`)
@@ -61,10 +63,13 @@ Manages the lifecycle of all registered MCP server subprocesses.
 ### Startup
 
 `MCPManager.start_all()` is called from `web/app.py` lifespan. For each registered server:
-1. Spawns the subprocess (stdin/stdout pipe)
-2. Sends MCP `initialize` handshake
-3. Calls `tools/list` to discover available tools
-4. Registers tools with a `server_id__tool_name` prefix
+1. Merges `config.env` **on top of** `os.environ` (`{**os.environ, **config.env}`) so subprocesses inherit the full parent environment (PATH, HOME, etc.) while `config.env` values take precedence
+2. Spawns the subprocess (stdin/stdout pipe)
+3. Sends MCP `initialize` handshake
+4. Calls `tools/list` to discover available tools
+5. Registers tools with a `server_id__tool_name` prefix
+
+The `filesystem` server has `env={"PYTHONPATH": PROJECT_ROOT}` set in the builtin registry so it can `import deepseek_chat` without a sys.path hack.
 
 ### Tool routing
 
@@ -97,7 +102,7 @@ The agent's `stream_reply` loop handles two special JSON payloads from the clien
 On receiving `tool_calls`:
 1. Save preceding text to session
 2. Append assistant message with `tool_calls` payload
-3. For each call: `MCPManager.execute_tool(fn_name, args)`
+3. For each call: `asyncio.wait_for(MCPManager.execute_tool(fn_name, args), timeout=30.0)` — a 30-second timeout prevents a hanging MCP server from stalling the entire response stream. On timeout, an error chunk is yielded and the stream continues.
 4. Append `tool` result message to session
 5. Re-build history and re-enter the LLM stream loop
 

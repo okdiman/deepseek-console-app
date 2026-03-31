@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import os
 from typing import Dict
@@ -46,6 +47,20 @@ _active_strategy: str = "default"
 
 _task_machines: Dict[str, TaskStateMachine] = {}
 
+# Protects lazy-initialization of per-session objects.
+# Without this, two concurrent requests for the same new session_id could
+# both pass the `if session_id not in _sessions` check and create duplicate state.
+_session_init_lock: asyncio.Lock | None = None
+
+
+def _get_session_init_lock() -> asyncio.Lock:
+    """Return the session init lock, creating it lazily inside the running loop."""
+    global _session_init_lock
+    if _session_init_lock is None:
+        _session_init_lock = asyncio.Lock()
+    return _session_init_lock
+
+
 _AGENT_REGISTRY = {
     "python": "Python Agent",
     "general": "General Agent",
@@ -91,9 +106,22 @@ def get_agent(agent_id: str, session_id: str = "default") -> PythonAgent | Gener
     return GeneralAgent(client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
 
 
-def get_session(session_id: str = "default") -> ChatSession:
+async def get_session_async(session_id: str = "default") -> ChatSession:
+    """Async version — safe for concurrent requests on the same new session_id."""
     if session_id not in _sessions:
-        # Inherit provider config from the default session
+        async with _get_session_init_lock():
+            # Double-checked locking: re-check after acquiring the lock.
+            if session_id not in _sessions:
+                inherited = _session_configs.get("default", _startup_config)
+                _session_configs[session_id] = inherited
+                _session_clients[session_id] = DeepSeekClient(inherited)
+                _sessions[session_id] = ChatSession(max_messages=inherited.context_max_messages)
+    return _sessions[session_id]
+
+
+def get_session(session_id: str = "default") -> ChatSession:
+    """Sync version — safe for single-threaded/startup use only."""
+    if session_id not in _sessions:
         inherited = _session_configs.get("default", _startup_config)
         _session_configs[session_id] = inherited
         _session_clients[session_id] = DeepSeekClient(inherited)
@@ -113,7 +141,17 @@ def delete_session(session_id: str) -> None:
     _session_configs.pop(session_id, None)
     _session_clients.pop(session_id, None)
 
+async def get_task_machine_async(session_id: str = "default") -> TaskStateMachine:
+    """Async version — safe for concurrent requests on the same new session_id."""
+    if session_id not in _task_machines:
+        async with _get_session_init_lock():
+            if session_id not in _task_machines:
+                _task_machines[session_id] = TaskStateMachine()
+    return _task_machines[session_id]
+
+
 def get_task_machine(session_id: str = "default") -> TaskStateMachine:
+    """Sync version — safe for single-threaded/startup use only."""
     if session_id not in _task_machines:
         _task_machines[session_id] = TaskStateMachine()
     return _task_machines[session_id]

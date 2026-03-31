@@ -24,6 +24,9 @@ from typing import List
 from deepseek_chat.core.paths import DATA_DIR
 
 
+_MAX_LIST_SIZE = 50  # cap per-list to prevent unbounded growth
+
+
 @dataclass
 class DialogueTask:
     goal: str = ""
@@ -45,12 +48,18 @@ class DialogueTask:
         elif mt == "CLARIFIED":
             if value not in self.clarifications:
                 self.clarifications.append(value)
+                if len(self.clarifications) > _MAX_LIST_SIZE:
+                    self.clarifications.pop(0)
         elif mt == "CONSTRAINT":
             if value not in self.constraints:
                 self.constraints.append(value)
+                if len(self.constraints) > _MAX_LIST_SIZE:
+                    self.constraints.pop(0)
         elif mt == "TOPIC":
             if value not in self.explored_topics:
                 self.explored_topics.append(value)
+                if len(self.explored_topics) > _MAX_LIST_SIZE:
+                    self.explored_topics.pop(0)
             # When a topic is answered, remove any matching unresolved question
             self.unresolved_questions = [
                 q for q in self.unresolved_questions
@@ -59,6 +68,8 @@ class DialogueTask:
         elif mt == "UNRESOLVED":
             if value not in self.unresolved_questions:
                 self.unresolved_questions.append(value)
+                if len(self.unresolved_questions) > _MAX_LIST_SIZE:
+                    self.unresolved_questions.pop(0)
 
     def clear(self) -> None:
         self.goal = ""

@@ -86,7 +86,7 @@ Each hook's `intercept_stream(agent, user_input, history)` is called. If any hoo
 
 `client.stream_message(history)` streams text chunks. Two special JSON payloads are handled inline:
 - `{"__type__": "tool_call_start"}` — yields a UI indicator
-- `{"__type__": "tool_calls"}` — executes all tool calls via `MCPManager`, saves tool results to session, re-builds history, and re-enters the stream loop
+- `{"__type__": "tool_calls"}` — executes all tool calls via `MCPManager` (each call wrapped with a **30-second `asyncio.wait_for` timeout**), saves tool results to session, re-builds history, and re-enters the stream loop
 
 All other chunks are yielded to the caller and collected in `response_parts`.
 
@@ -269,7 +269,7 @@ If `agent._skip_after_stream_markers` is set (by `web/streaming.py` which proces
 |-------|-------|---------|
 | `GeneralAgent` | MemoryInjection, InvariantGuard, UserProfile, TaskState, AutoTitle | Default web UI agent |
 | `PythonAgent` | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard, AutoTitle | Python / code-focused conversations with RAG |
-| `DevHelpAgent` | Rag | Project documentation assistant; `/help <question>` in console and web |
+| `DevHelpAgent` | Rag, AutoTitle | Project documentation assistant; `/help <question>` in console and web |
 | `BackgroundAgent` | *(none)* | Scheduler tasks; minimal, no UI hooks |
 | `RagChatAgent` (demo) | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard | RAG mini-chat experiment |
 
@@ -277,7 +277,7 @@ If `agent._skip_after_stream_markers` is set (by `web/streaming.py` which proces
 
 `dev_help_agent.py` — developer assistant that can both answer questions about the project and make changes to it.
 
-**Hook stack:** `[RagHook]` — only RAG, no memory/profile/title hooks.
+**Hook stack:** `[RagHook, AutoTitleHook]` — RAG context retrieval and auto title generation; no memory/profile/task-state hooks (keeps answers doc-focused).
 
 **Capabilities:**
 - Answers questions using RAG (project docs + source files)
