@@ -12,6 +12,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // ── Diff renderer: line-by-line divs so backgrounds fill full width ──────
+  function renderDiffBlock(code) {
+    const lines = code.replace(/\n$/, "").split("\n");
+    const rows = lines.map(line => {
+      const esc = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      if (line.startsWith("+++") || line.startsWith("---")) {
+        return `<div class="diff-line diff-meta">${esc}</div>`;
+      } else if (line.startsWith("+")) {
+        return `<div class="diff-line diff-add">${esc}</div>`;
+      } else if (line.startsWith("-")) {
+        return `<div class="diff-line diff-del">${esc}</div>`;
+      } else if (line.startsWith("@@")) {
+        return `<div class="diff-line diff-hunk">${esc}</div>`;
+      }
+      return `<div class="diff-line">${esc}</div>`;
+    }).join("");
+    return `<div class="diff-block">${rows}</div>`;
+  }
+
+  marked.use({
+    renderer: {
+      code(code, lang) {
+        if (lang === "diff") return renderDiffBlock(code);
+        return false;
+      }
+    }
+  });
+
   function addCopyButtons(container) {
     const blocks = container.querySelectorAll("pre code");
     blocks.forEach((block) => {
@@ -1199,10 +1227,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const modal = document.getElementById("diffModal");
     document.getElementById("diffModalTitle").textContent = `${proposal.kind}: ${proposal.path}`;
 
-    const codeEl = document.getElementById("diffModalCode");
-    codeEl.textContent = proposal.preview || "(no preview available)";
-    codeEl.removeAttribute("data-highlighted");
-    hljs.highlightElement(codeEl);
+    const viewer = modal.querySelector(".diff-viewer");
+    viewer.innerHTML = renderDiffBlock(proposal.preview || "");
 
     const actions = document.getElementById("diffModalActions");
     actions.innerHTML = "";

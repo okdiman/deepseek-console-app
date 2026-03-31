@@ -267,29 +267,13 @@
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
-.diff-viewer pre {
+/* diff-viewer renders a .diff-block directly — no pre/code needed */
+.diff-viewer .diff-block {
+    border-radius: 0;
+    border: none;
     margin: 0;
-    padding: 14px 16px;
+    padding: 8px 0;
     font-size: 12.5px;
-    line-height: 1.55;
-    white-space: pre;
-    overflow-x: auto;
-}
-
-.diff-viewer pre code {
-    background: transparent;
-    padding: 0;
-}
-
-/* Override margin/padding for diff viewer — pre uses 16px horizontal padding */
-.diff-viewer .hljs-addition {
-    margin: 0 -16px;
-    padding: 0 16px;
-}
-
-.diff-viewer .hljs-deletion {
-    margin: 0 -16px;
-    padding: 0 16px;
 }
 
 .diff-viewer::-webkit-scrollbar { width: 6px; height: 6px; }

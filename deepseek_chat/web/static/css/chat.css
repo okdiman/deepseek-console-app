@@ -178,24 +178,30 @@
     white-space: pre;
 }
 
-/* ── Diff syntax highlighting (hljs additions/deletions) ── */
-/* Negative margin + matching padding pulls the colored background flush with
-   the pre's edges (pre has padding:12px), so consecutive lines have no gaps. */
-.hljs-addition {
-    display: block;
-    background: rgba(46, 160, 67, 0.2);
-    color: #aff5b4;
-    margin: 0 -12px;
-    padding: 0 12px;
+/* ── Diff blocks (custom line-by-line rendering, no hljs spans) ── */
+.diff-block {
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 8px 0;
+    margin: 10px 0;
 }
 
-.hljs-deletion {
+.diff-line {
     display: block;
-    background: rgba(248, 81, 73, 0.2);
-    color: #ffa198;
-    margin: 0 -12px;
-    padding: 0 12px;
+    padding: 0 14px;
+    white-space: pre;
+    color: var(--text-primary);
 }
+
+.diff-add  { background: rgba(46, 160, 67, 0.2);  color: #aff5b4; }
+.diff-del  { background: rgba(248, 81, 73, 0.2);  color: #ffa198; }
+.diff-hunk { background: rgba(56, 139, 253, 0.1); color: #79c0ff; }
+.diff-meta { color: var(--text-secondary); }
 
 .copy-btn {
     position: absolute;
