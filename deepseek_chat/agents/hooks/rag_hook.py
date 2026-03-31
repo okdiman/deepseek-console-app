@@ -80,10 +80,11 @@ class RagHook(AgentHook):
     Readiness is re-checked every 30 seconds when not ready (e.g. after indexing).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, allow_tools: bool = False) -> None:
         self._ready: bool | None = None  # None = not checked yet
         self._last_failed_check: float = 0.0
         self.last_chunks: list = []  # last retrieved chunks; readable by the CLI for display
+        self._allow_tools = allow_tools  # if True, never suppress tools regardless of RAG confidence
 
     async def _check_ready(self) -> bool:
         """Check: is Ollama running and index non-empty? Runs blocking I/O in executor."""
@@ -200,10 +201,11 @@ class RagHook(AgentHook):
                     block.max_score,
                     block.chunk_count,
                 )
-                # Suppress MCP tools only when RAG is CONFIDENT (index has a full answer).
-                # UNCERTAIN/WEAK/EMPTY → tools stay available so the agent can look up
-                # exact file contents or run git queries to complement partial context.
-                if block.confidence == ContextConfidence.CONFIDENT:
+                # Suppress MCP tools only when RAG is CONFIDENT (index has a full answer)
+                # AND the hook is not configured to always keep tools available.
+                # DevHelpAgent passes allow_tools=True because it always needs filesystem/git
+                # tools to read and write code, regardless of RAG confidence.
+                if block.confidence == ContextConfidence.CONFIDENT and not self._allow_tools:
                     self.suppress_tools = True
                 return system_prompt + block.formatted
             else:

@@ -51,5 +51,5 @@ class DevHelpAgent(BaseAgent):
     SYSTEM_PROMPT = SYSTEM_PROMPT
 
     def __init__(self, client, session, mcp_manager=None):
-        hooks = [RagHook(), AutoTitleHook()]
+        hooks = [RagHook(allow_tools=True), AutoTitleHook()]
         super().__init__(client, session, hooks=hooks, mcp_manager=mcp_manager)

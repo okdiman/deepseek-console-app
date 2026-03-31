@@ -187,6 +187,14 @@ The application ships seven concrete hooks. Each inherits `AgentHook` and is reg
 
 **Purpose:** Retrieval-Augmented Generation — searches the local document index and injects relevant chunks into the system prompt before each LLM call. Gives RAG priority over MCP tools when retrieval confidence is high.
 
+**Constructor parameter:**
+
+```python
+RagHook(allow_tools: bool = False)
+```
+
+`allow_tools=True` disables tool suppression entirely regardless of RAG confidence. Use this for agents (like `DevHelpAgent`) that always need filesystem/git tools to do their job, even when RAG has a confident answer.
+
 **How (before_stream pipeline):**
 
 1. Reset `self.suppress_tools = False`
@@ -198,15 +206,15 @@ The application ships seven concrete hooks. Each inherits `AgentHook` and is reg
 7. Rerank/filter to `RAG_TOP_K` chunks
 8. Assess confidence (`empty` / `weak` / `uncertain` / `confident`)
 9. Format citation block and append to system prompt
-10. If confidence is `CONFIDENT` → set `self.suppress_tools = True`
+10. If confidence is `CONFIDENT` and `allow_tools=False` → set `self.suppress_tools = True`
 
 **Tool suppression:**
 
-| Confidence | MCP tools offered to LLM |
-|------------|--------------------------|
-| `CONFIDENT` (score ≥ 0.55) | No — local context is sufficient |
-| `UNCERTAIN` (score ≥ 0.45) | Yes — partial context, tools may help |
-| `WEAK` / `EMPTY` | Yes — nothing reliable found locally |
+| Confidence | `allow_tools=False` (default) | `allow_tools=True` (DevHelpAgent) |
+|------------|-------------------------------|-----------------------------------|
+| `CONFIDENT` (score ≥ 0.55) | No — local context is sufficient | Yes — agent needs tools to act |
+| `UNCERTAIN` (score ≥ 0.45) | Yes | Yes |
+| `WEAK` / `EMPTY` | Yes | Yes |
 
 **Exposes:** `self.last_chunks` — list of retrieved chunks, readable by CLI for display.
 
