@@ -43,8 +43,7 @@ deepseek_chat/
   agents/
     base_agent.py         # Pipeline orchestrator — hook lifecycle
     general_agent.py      # General-purpose agent
-    android_agent.py      # Android-focused agent
-    background_agent.py   # Minimal agent for scheduled background tasks
+background_agent.py   # Minimal agent for scheduled background tasks
     strategies.py         # UnifiedStrategy: sliding window + compression + facts
     hooks/
       base.py             # AgentHook ABC
