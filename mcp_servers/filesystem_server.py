@@ -68,7 +68,7 @@ def list_directory(path: str = ".", pattern: str = "*") -> str:
     path: Directory relative to project root (default: project root).
     pattern: Glob pattern to filter files (e.g. '*.py', '**/*.md').
     """
-    _SKIP = {"__pycache__", ".git", ".venv", "venv", "node_modules", ".pytest_cache"}
+    _SKIP = {"__pycache__", ".git", ".claude", ".venv", "venv", "node_modules", ".pytest_cache"}
     try:
         base = _rel(path)
         if not base.is_dir():
@@ -92,7 +92,7 @@ def search_in_files(pattern: str, glob: str = "**/*.py") -> str:
     Returns up to 50 matches with file:line:content.
     """
     import re
-    _SKIP = {"__pycache__", ".git", ".venv", "venv", "node_modules"}
+    _SKIP = {"__pycache__", ".git", ".claude", ".venv", "venv", "node_modules"}
     try:
         regex = re.compile(pattern)
     except re.error as e:
