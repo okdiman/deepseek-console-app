@@ -179,16 +179,22 @@
 }
 
 /* ── Diff syntax highlighting (hljs additions/deletions) ── */
+/* Negative margin + matching padding pulls the colored background flush with
+   the pre's edges (pre has padding:12px), so consecutive lines have no gaps. */
 .hljs-addition {
     display: block;
-    background: rgba(46, 160, 67, 0.18);
+    background: rgba(46, 160, 67, 0.2);
     color: #aff5b4;
+    margin: 0 -12px;
+    padding: 0 12px;
 }
 
 .hljs-deletion {
     display: block;
-    background: rgba(248, 81, 73, 0.18);
+    background: rgba(248, 81, 73, 0.2);
     color: #ffa198;
+    margin: 0 -12px;
+    padding: 0 12px;
 }
 
 .copy-btn {

@@ -281,6 +281,17 @@
     padding: 0;
 }
 
+/* Override margin/padding for diff viewer — pre uses 16px horizontal padding */
+.diff-viewer .hljs-addition {
+    margin: 0 -16px;
+    padding: 0 16px;
+}
+
+.diff-viewer .hljs-deletion {
+    margin: 0 -16px;
+    padding: 0 16px;
+}
+
 .diff-viewer::-webkit-scrollbar { width: 6px; height: 6px; }
 .diff-viewer::-webkit-scrollbar-thumb {
     background-color: rgba(255, 255, 255, 0.1);
