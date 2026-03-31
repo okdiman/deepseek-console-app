@@ -178,6 +178,19 @@
     white-space: pre;
 }
 
+/* ── Diff syntax highlighting (hljs additions/deletions) ── */
+.hljs-addition {
+    display: block;
+    background: rgba(46, 160, 67, 0.18);
+    color: #aff5b4;
+}
+
+.hljs-deletion {
+    display: block;
+    background: rgba(248, 81, 73, 0.18);
+    color: #ffa198;
+}
+
 .copy-btn {
     position: absolute;
     top: 8px;

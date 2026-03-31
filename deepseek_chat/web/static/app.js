@@ -1153,12 +1153,17 @@ document.addEventListener("DOMContentLoaded", () => {
       row.style.cssText = "display:flex;align-items:center;gap:8px;margin-top:8px;";
 
       const label = document.createElement("span");
-      label.style.flex = "1";
+      label.style.cssText = "flex:1;font-family:ui-monospace,monospace;font-size:12px;";
       label.textContent = `[${p.id}] ${p.kind} — ${p.path}`;
+
+      const viewBtn = document.createElement("button");
+      viewBtn.textContent = "👁 View";
+      viewBtn.style.cssText = "padding:3px 10px;border-radius:4px;cursor:pointer;background:rgba(94,129,212,0.2);color:#92abec;border:1px solid rgba(94,129,212,0.3);font-size:12px;";
+      viewBtn.onclick = () => showDiffModal(p);
 
       const applyBtn = document.createElement("button");
       applyBtn.textContent = "✅ Apply";
-      applyBtn.style.cssText = "padding:3px 10px;border-radius:4px;cursor:pointer;background:#16a34a;color:#fff;border:none;";
+      applyBtn.style.cssText = "padding:3px 10px;border-radius:4px;cursor:pointer;background:#16a34a;color:#fff;border:none;font-size:12px;";
       applyBtn.onclick = async () => {
         applyBtn.disabled = true;
         discardBtn.disabled = true;
@@ -1170,7 +1175,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const discardBtn = document.createElement("button");
       discardBtn.textContent = "🗑 Discard";
-      discardBtn.style.cssText = "padding:3px 10px;border-radius:4px;cursor:pointer;background:#dc2626;color:#fff;border:none;";
+      discardBtn.style.cssText = "padding:3px 10px;border-radius:4px;cursor:pointer;background:#dc2626;color:#fff;border:none;font-size:12px;";
       discardBtn.onclick = async () => {
         applyBtn.disabled = true;
         discardBtn.disabled = true;
@@ -1181,11 +1186,64 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       row.appendChild(label);
+      row.appendChild(viewBtn);
       row.appendChild(applyBtn);
       row.appendChild(discardBtn);
       panel.appendChild(row);
     });
   }
+
+  // ── Diff Viewer Modal ───────────────────────────────────
+
+  function showDiffModal(proposal) {
+    const modal = document.getElementById("diffModal");
+    document.getElementById("diffModalTitle").textContent = `${proposal.kind}: ${proposal.path}`;
+
+    const codeEl = document.getElementById("diffModalCode");
+    codeEl.textContent = proposal.preview || "(no preview available)";
+    codeEl.removeAttribute("data-highlighted");
+    hljs.highlightElement(codeEl);
+
+    const actions = document.getElementById("diffModalActions");
+    actions.innerHTML = "";
+
+    const discardBtn = document.createElement("button");
+    discardBtn.textContent = "🗑 Discard";
+    discardBtn.className = "secondary-btn";
+    discardBtn.onclick = async () => {
+      discardBtn.disabled = true; applyBtn.disabled = true;
+      const r = await fetch(`/discard-change?proposal_id=${encodeURIComponent(proposal.id)}`, {method:"POST"});
+      const d = await r.json();
+      addMessage("system", d.message || "Discarded.");
+      modal.style.display = "none";
+      loadPendingChanges();
+    };
+
+    const applyBtn = document.createElement("button");
+    applyBtn.textContent = "✅ Apply";
+    applyBtn.className = "primary-btn";
+    applyBtn.onclick = async () => {
+      applyBtn.disabled = true; discardBtn.disabled = true;
+      const r = await fetch(`/apply-change?proposal_id=${encodeURIComponent(proposal.id)}`, {method:"POST"});
+      const d = await r.json();
+      addMessage("system", d.message || (d.ok ? "Applied." : "Failed."));
+      modal.style.display = "none";
+      loadPendingChanges();
+    };
+
+    actions.appendChild(discardBtn);
+    actions.appendChild(applyBtn);
+    modal.style.display = "block";
+  }
+
+  document.getElementById("closeDiffModal").onclick = () => {
+    document.getElementById("diffModal").style.display = "none";
+  };
+  document.getElementById("diffModal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("diffModal")) {
+      document.getElementById("diffModal").style.display = "none";
+    }
+  });
 
   // ── Task State Panel ───────────────────────────────────
 
