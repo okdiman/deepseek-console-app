@@ -1158,6 +1158,38 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) { console.error("Failed to load pending changes", e); }
   }
 
+  // Tracks applied/discarded paths during a proposal session for the AI summary.
+  const _resolvedProposals = { applied: [], discarded: [] };
+
+  async function executeProposalAction(action, proposal, btnsToDisable) {
+    btnsToDisable.forEach(b => b.disabled = true);
+    const url = action === "apply"
+      ? `/apply-change?proposal_id=${encodeURIComponent(proposal.id)}`
+      : `/discard-change?proposal_id=${encodeURIComponent(proposal.id)}`;
+    const r = await fetch(url, { method: "POST" });
+    const d = await r.json();
+
+    // Track for AI summary
+    if (action === "apply" && d.ok) _resolvedProposals.applied.push(proposal.path);
+    else if (action === "discard" && d.ok) _resolvedProposals.discarded.push(proposal.path);
+
+    addMessage("system", d.message || (d.ok ? (action === "apply" ? "Applied." : "Discarded.") : "Failed."));
+    document.getElementById("diffModal").style.display = "none";
+    await loadPendingChanges();
+
+    // When all proposals are resolved, let the AI know and ask for next steps.
+    if (d.remaining === 0 && (_resolvedProposals.applied.length + _resolvedProposals.discarded.length) > 0) {
+      const parts = [];
+      if (_resolvedProposals.applied.length)
+        parts.push(`applied: ${[...new Set(_resolvedProposals.applied)].join(", ")}`);
+      if (_resolvedProposals.discarded.length)
+        parts.push(`discarded: ${[...new Set(_resolvedProposals.discarded)].join(", ")}`);
+      _resolvedProposals.applied.length = 0;
+      _resolvedProposals.discarded.length = 0;
+      sendAutoMessage(`All proposals resolved (${parts.join("; ")}). What should we do next?`);
+    }
+  }
+
   function renderPendingChanges(proposals) {
     let panel = document.getElementById("pending-changes-panel");
     if (!proposals.length) {
@@ -1192,26 +1224,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const applyBtn = document.createElement("button");
       applyBtn.textContent = "✅ Apply";
       applyBtn.style.cssText = "padding:3px 10px;border-radius:4px;cursor:pointer;background:#16a34a;color:#fff;border:none;font-size:12px;";
-      applyBtn.onclick = async () => {
-        applyBtn.disabled = true;
-        discardBtn.disabled = true;
-        const r = await fetch(`/apply-change?proposal_id=${encodeURIComponent(p.id)}`, {method:"POST"});
-        const d = await r.json();
-        addMessage("system", d.message || (d.ok ? "Applied." : "Failed."));
-        loadPendingChanges();
-      };
+      applyBtn.onclick = () => executeProposalAction("apply", p, [applyBtn, discardBtn]);
 
       const discardBtn = document.createElement("button");
       discardBtn.textContent = "🗑 Discard";
       discardBtn.style.cssText = "padding:3px 10px;border-radius:4px;cursor:pointer;background:#dc2626;color:#fff;border:none;font-size:12px;";
-      discardBtn.onclick = async () => {
-        applyBtn.disabled = true;
-        discardBtn.disabled = true;
-        const r = await fetch(`/discard-change?proposal_id=${encodeURIComponent(p.id)}`, {method:"POST"});
-        const d = await r.json();
-        addMessage("system", d.message || "Discarded.");
-        loadPendingChanges();
-      };
+      discardBtn.onclick = () => executeProposalAction("discard", p, [applyBtn, discardBtn]);
 
       row.appendChild(label);
       row.appendChild(viewBtn);
@@ -1236,26 +1254,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const discardBtn = document.createElement("button");
     discardBtn.textContent = "🗑 Discard";
     discardBtn.className = "secondary-btn";
-    discardBtn.onclick = async () => {
-      discardBtn.disabled = true; applyBtn.disabled = true;
-      const r = await fetch(`/discard-change?proposal_id=${encodeURIComponent(proposal.id)}`, {method:"POST"});
-      const d = await r.json();
-      addMessage("system", d.message || "Discarded.");
-      modal.style.display = "none";
-      loadPendingChanges();
-    };
+    discardBtn.onclick = () => executeProposalAction("discard", proposal, [discardBtn, applyBtn]);
 
     const applyBtn = document.createElement("button");
     applyBtn.textContent = "✅ Apply";
     applyBtn.className = "primary-btn";
-    applyBtn.onclick = async () => {
-      applyBtn.disabled = true; discardBtn.disabled = true;
-      const r = await fetch(`/apply-change?proposal_id=${encodeURIComponent(proposal.id)}`, {method:"POST"});
-      const d = await r.json();
-      addMessage("system", d.message || (d.ok ? "Applied." : "Failed."));
-      modal.style.display = "none";
-      loadPendingChanges();
-    };
+    applyBtn.onclick = () => executeProposalAction("apply", proposal, [applyBtn, discardBtn]);
 
     actions.appendChild(discardBtn);
     actions.appendChild(applyBtn);

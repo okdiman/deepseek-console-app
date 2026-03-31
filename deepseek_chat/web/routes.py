@@ -97,6 +97,7 @@ async def clear(session_id: str = Query("default")) -> JSONResponse:
         session.save(config.context_path, config.provider, config.model)
     get_task_machine(session_id).reset()
     DialogueTask().save()
+    change_store.clear()
     return JSONResponse({"ok": True})
 
 
@@ -447,7 +448,8 @@ async def apply_change_route(proposal_id: str = Query(...)) -> JSONResponse:
     """Apply a pending proposal (user-triggered, not LLM-triggered)."""
     result = _fs_apply(proposal_id)
     ok = result.startswith("✅")
-    return JSONResponse({"ok": ok, "message": result})
+    remaining = len(change_store.list_all())
+    return JSONResponse({"ok": ok, "message": result, "remaining": remaining})
 
 
 @router.post("/discard-change")
@@ -455,4 +457,5 @@ async def discard_change_route(proposal_id: str = Query(...)) -> JSONResponse:
     """Discard a pending proposal."""
     result = _fs_discard(proposal_id)
     ok = "not found" not in result.lower()
-    return JSONResponse({"ok": ok, "message": result})
+    remaining = len(change_store.list_all())
+    return JSONResponse({"ok": ok, "message": result, "remaining": remaining})
