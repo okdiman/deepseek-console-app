@@ -258,3 +258,50 @@ def test_propose_write_symlink_escape(isolated_env):
     result = fs_mod.propose_write("link_dir/evil.py", "bad content")
     assert "escape" in result.lower() or "error" in result.lower()
     assert len(cs.list_all()) == 0
+
+
+# ── proposal merging (one proposal per file) ──────────────────────────────────
+
+def test_two_edits_same_file_merged_into_one(isolated_env):
+    """Two propose_edit calls on the same file produce a single proposal."""
+    (isolated_env / "code.py").write_text("a = 1\nb = 2\nc = 3\n")
+    fs_mod.propose_edit("code.py", "a = 1", "a = 10")
+    fs_mod.propose_edit("code.py", "b = 2", "b = 20")
+    proposals = cs.list_all()
+    assert len(proposals) == 1
+    # The single proposal contains both changes.
+    assert "a = 10" in proposals[0].content
+    assert "b = 20" in proposals[0].content
+
+
+def test_merged_proposal_applied_correctly(isolated_env):
+    """Applying the merged proposal writes the fully combined result."""
+    (isolated_env / "code.py").write_text("x = 1\ny = 2\n")
+    fs_mod.propose_edit("code.py", "x = 1", "x = 99")
+    fs_mod.propose_edit("code.py", "y = 2", "y = 88")
+    pid = cs.list_all()[0].id
+    fs_mod.apply_change(pid)
+    assert (isolated_env / "code.py").read_text() == "x = 99\ny = 88\n"
+
+
+def test_propose_write_replaces_pending_edit(isolated_env):
+    """propose_write on a file with pending edits replaces them all with one proposal."""
+    (isolated_env / "f.py").write_text("old\n")
+    fs_mod.propose_edit("f.py", "old", "middle")
+    fs_mod.propose_write("f.py", "final\n")
+    proposals = cs.list_all()
+    assert len(proposals) == 1
+    assert proposals[0].content == "final\n"
+
+
+def test_second_edit_sees_first_edit_applied(isolated_env):
+    """propose_edit uses the virtually-applied state, not raw file content."""
+    (isolated_env / "f.py").write_text("foo\nbar\n")
+    # First edit replaces 'foo' with 'baz'.
+    fs_mod.propose_edit("f.py", "foo", "baz")
+    # Second edit targets 'baz' (which exists only after first edit is applied).
+    result = fs_mod.propose_edit("f.py", "baz", "qux")
+    assert "not found" not in result.lower()
+    pid = cs.list_all()[0].id
+    fs_mod.apply_change(pid)
+    assert (isolated_env / "f.py").read_text() == "qux\nbar\n"

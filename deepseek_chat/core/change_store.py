@@ -90,6 +90,21 @@ def list_all() -> List[Proposal]:
         return [Proposal(**v) for v in _load().values()]
 
 
+def get_by_path(path: str) -> List[Proposal]:
+    with _file_lock():
+        return [Proposal(**v) for v in _load().values() if v["path"] == path]
+
+
+def remove_by_path(path: str) -> int:
+    """Remove all proposals for a given path. Returns count removed."""
+    with _file_lock():
+        data = _load()
+        before = len(data)
+        data = {k: v for k, v in data.items() if v["path"] != path}
+        _save(data)
+        return before - len(data)
+
+
 def clear() -> None:
     with _file_lock():
         if _STORE_PATH.exists():

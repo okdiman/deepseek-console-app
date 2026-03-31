@@ -17,6 +17,18 @@ from mcp.server.fastmcp import FastMCP
 from deepseek_chat.core import change_store
 from deepseek_chat.core.change_store import Proposal
 
+
+def _apply_proposals_virtually(proposals: list, original: str) -> str:
+    """Return what the file would look like after applying all pending proposals."""
+    content = original
+    for p in proposals:
+        if p.kind == "write":
+            content = p.content or content
+        elif p.kind == "edit" and p.old_string is not None:
+            if p.old_string in content:
+                content = content.replace(p.old_string, p.new_string or "", 1)
+    return content
+
 _PROJECT_ROOT = Path(__file__).parent.parent
 
 mcp = FastMCP("Filesystem Server")
@@ -132,19 +144,22 @@ def propose_write(path: str, content: str) -> str:
         return f"Error: {e}"
 
     if abs_path.exists():
-        existing = abs_path.read_text(encoding="utf-8", errors="replace")
-        preview = _unified_diff(path, existing, content)
+        original = abs_path.read_text(encoding="utf-8", errors="replace")
+        preview = _unified_diff(path, original, content)
         action = "overwrite"
     else:
         lines = content.splitlines()
         preview = "\n".join(f"+ {ln}" for ln in lines)
         action = "create"
 
+    # Replace any existing proposals for this file with a single unified one.
+    merged = change_store.remove_by_path(path)
     pid = _short_id()
     change_store.add(Proposal(id=pid, kind="write", path=path, preview=preview, content=content))
+    suffix = f" (replaced {merged} earlier proposal(s))" if merged else ""
 
     return (
-        f"Proposal `{pid}` — {action} `{path}`:\n\n"
+        f"Proposal `{pid}` — {action} `{path}`{suffix}:\n\n"
         f"```diff\n{preview}\n```\n\n"
         f"⏳ Waiting for your approval. Use the **Apply / Discard** buttons in the UI, "
         f"or type `/apply {pid}` / `/discard {pid}` in the console."
@@ -170,8 +185,18 @@ def propose_edit(path: str, old_string: str, new_string: str) -> str:
     except FileNotFoundError:
         return f"File not found: {path}"
 
-    count = original.count(old_string)
+    # If there are already pending proposals for this file, apply them virtually
+    # so the new edit is applied on top of those changes.
+    existing = change_store.get_by_path(path)
+    effective = _apply_proposals_virtually(existing, original) if existing else original
+
+    count = effective.count(old_string)
     if count == 0:
+        if existing:
+            return (
+                f"String not found in '{path}' after applying {len(existing)} pending "
+                f"proposal(s). The string may have already been changed by an earlier edit."
+            )
         return f"String not found in '{path}'. Check for exact whitespace/indentation match."
     if count > 1:
         return (
@@ -179,17 +204,17 @@ def propose_edit(path: str, old_string: str, new_string: str) -> str:
             f"Provide more surrounding context to make it unique."
         )
 
-    modified = original.replace(old_string, new_string, 1)
-    preview = _unified_diff(path, original, modified)
+    final = effective.replace(old_string, new_string, 1)
 
+    # Always produce a single proposal per file: diff from disk → final state.
+    merged = change_store.remove_by_path(path)
+    preview = _unified_diff(path, original, final)
     pid = _short_id()
-    change_store.add(Proposal(
-        id=pid, kind="edit", path=path, preview=preview,
-        old_string=old_string, new_string=new_string,
-    ))
+    change_store.add(Proposal(id=pid, kind="write", path=path, preview=preview, content=final))
+    suffix = f" (merged with {merged} earlier proposal(s))" if merged else ""
 
     return (
-        f"Proposal `{pid}` — edit `{path}`:\n\n"
+        f"Proposal `{pid}` — edit `{path}`{suffix}:\n\n"
         f"```diff\n{preview}\n```\n\n"
         f"⏳ Waiting for your approval. Use the **Apply / Discard** buttons in the UI, "
         f"or type `/apply {pid}` / `/discard {pid}` in the console."
