@@ -200,10 +200,10 @@ class RagHook(AgentHook):
                     block.max_score,
                     block.chunk_count,
                 )
-                # Suppress MCP tools when RAG has anything useful (CONFIDENT or UNCERTAIN).
-                # Tools remain available only when context is EMPTY or WEAK (score < IDK
-                # threshold) — i.e. the index truly has nothing relevant.
-                if block.confidence in (ContextConfidence.CONFIDENT, ContextConfidence.UNCERTAIN):
+                # Suppress MCP tools only when RAG is CONFIDENT (index has a full answer).
+                # UNCERTAIN/WEAK/EMPTY → tools stay available so the agent can look up
+                # exact file contents or run git queries to complement partial context.
+                if block.confidence == ContextConfidence.CONFIDENT:
                     self.suppress_tools = True
                 return system_prompt + block.formatted
             else:
