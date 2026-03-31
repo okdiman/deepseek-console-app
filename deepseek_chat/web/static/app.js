@@ -12,21 +12,37 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // ── Diff renderer: line-by-line divs so backgrounds fill full width ──────
+  // ── Diff renderer: line-by-line divs with line numbers ──────────────────
   function renderDiffBlock(code) {
     const lines = code.replace(/\n$/, "").split("\n");
+    let oldLn = 0, newLn = 0;
+
+    function ln(old, nw) {
+      return `<span class="diff-ln">${old || ""}</span><span class="diff-ln">${nw || ""}</span>`;
+    }
+
     const rows = lines.map(line => {
       const esc = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      if (line.startsWith("+++") || line.startsWith("---")) {
-        return `<div class="diff-line diff-meta">${esc}</div>`;
-      } else if (line.startsWith("+")) {
-        return `<div class="diff-line diff-add">${esc}</div>`;
-      } else if (line.startsWith("-")) {
-        return `<div class="diff-line diff-del">${esc}</div>`;
-      } else if (line.startsWith("@@")) {
-        return `<div class="diff-line diff-hunk">${esc}</div>`;
+
+      if (line.startsWith("@@")) {
+        const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+        if (m) { oldLn = parseInt(m[1], 10); newLn = parseInt(m[2], 10); }
+        return `<div class="diff-line diff-hunk">${ln("","")}<span class="diff-content">${esc}</span></div>`;
       }
-      return `<div class="diff-line">${esc}</div>`;
+      if (line.startsWith("+++") || line.startsWith("---")) {
+        return `<div class="diff-line diff-meta">${ln("","")}<span class="diff-content">${esc}</span></div>`;
+      }
+      if (line.startsWith("+")) {
+        const n = newLn++;
+        return `<div class="diff-line diff-add">${ln("", n)}<span class="diff-content">${esc}</span></div>`;
+      }
+      if (line.startsWith("-")) {
+        const o = oldLn++;
+        return `<div class="diff-line diff-del">${ln(o, "")}<span class="diff-content">${esc}</span></div>`;
+      }
+      // unchanged
+      const o = oldLn++, n = newLn++;
+      return `<div class="diff-line">${ln(o, n)}<span class="diff-content">${esc}</span></div>`;
     }).join("");
     return `<div class="diff-block">${rows}</div>`;
   }
