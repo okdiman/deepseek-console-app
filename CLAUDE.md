@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 1. **`_HOW_IT_WORKS.md` for every touched package** — if you changed a file inside a package that has a `_HOW_IT_WORKS.md`, update that file. Check the table below to find the right one. Concretely: changed a default value → update the config table; changed a function's behavior → update the description; added a new concept → add a section.
 
-2. **`CLAUDE.md`** — update if: new env vars were added, architecture changed, new patterns introduced, commands changed, new files added to the persistent state table.
+2. **`README.md`** — update if: new features added, commands changed, new agents/tools introduced, architecture diagram affected, new env vars relevant to users.
+
+3. **`CLAUDE.md`** — update if: new env vars were added, architecture changed, new patterns introduced, commands changed, new files added to the persistent state table.
 
 **How to know which `_HOW_IT_WORKS.md` to update:** look at every file you edited, find its package in the table below, update that package's doc. If you edited files in 3 packages, update 3 docs.
 
@@ -59,6 +61,11 @@ python3 -m pytest tests/test_task_state.py::TestTaskStateMachine::test_transitio
 
 # Multi-model comparison utility
 python3 -m deepseek_chat.core.comparing.model_compare --prompt "..."
+
+# Day 32 — Automated PR code review
+python scripts/review_pr.py --diff diff.patch [--changed-files file1.py file2.py]
+git diff origin/main...HEAD | python scripts/review_pr.py
+# GitHub Action: .github/workflows/pr_review.yml (triggers automatically on PR)
 
 # RAG — download corpus documents (run once)
 python3 scripts/download_corpus.py
@@ -126,6 +133,7 @@ Concrete agents differ only in their system prompts and hook stacks:
 | `GeneralAgent` | Memory, Profile, Invariants, TaskState, AutoTitle | Web UI default |
 | `PythonAgent` | Rag, Memory, DialogueTask, Profile, Invariants, AutoTitle | Web UI "Python" option |
 | `DevHelpAgent` | Rag, AutoTitle | `/help <question>` (console + web) |
+| `CodeReviewAgent` | Rag | `scripts/review_pr.py` + GitHub Actions |
 | `BackgroundAgent` | *(none)* | Scheduler background tasks |
 
 ### Hook System
@@ -389,3 +397,4 @@ Tests use `pytest` with no mocking of databases (scheduler uses real SQLite temp
 | `test_git_server.py` | git MCP tools: branch, commits, changed files, diff, project tree |
 | `test_dev_help_agent.py` | `DevHelpAgent`: hook composition, system prompt |
 | `test_filesystem_server.py` | two-phase filesystem tools: read, propose, apply, discard |
+| `test_code_review_agent.py` | `CodeReviewAgent`: hook composition, system prompt, prompt builder |

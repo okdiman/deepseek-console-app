@@ -45,6 +45,7 @@ deepseek_chat/agents/
 ├── general_agent.py       — GeneralAgent (default for web UI)
 ├── python_agent.py        — PythonAgent (Python/code-focused)
 ├── dev_help_agent.py      — DevHelpAgent (project documentation assistant)
+├── code_review_agent.py   — CodeReviewAgent (automated PR review; used by scripts/review_pr.py)
 ├── background_agent.py    — BackgroundAgent (scheduler tasks, no hooks)
 └── hooks/
     ├── base.py             — AgentHook ABC
@@ -270,8 +271,29 @@ If `agent._skip_after_stream_markers` is set (by `web/streaming.py` which proces
 | `GeneralAgent` | MemoryInjection, InvariantGuard, UserProfile, TaskState, AutoTitle | Default web UI agent |
 | `PythonAgent` | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard, AutoTitle | Python / code-focused conversations with RAG |
 | `DevHelpAgent` | Rag, AutoTitle | Project documentation assistant; `/help <question>` in console and web |
+| `CodeReviewAgent` | Rag | Automated PR code review; invoked by `scripts/review_pr.py` and GitHub Actions |
 | `BackgroundAgent` | *(none)* | Scheduler tasks; minimal, no UI hooks |
 | `RagChatAgent` (demo) | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard | RAG mini-chat experiment |
+
+### CodeReviewAgent
+
+`code_review_agent.py` — stateless agent for automated PR code review.
+
+**Hook stack:** `[RagHook]` — injects project conventions from the local RAG index; degrades gracefully when Ollama is unavailable (e.g. in CI).
+
+**Input:** a git diff (passed as the user message), optionally with a list of changed files.
+
+**Output:** structured markdown review with four mandatory sections:
+- `## 🐛 Potential Bugs` — concrete bugs, edge cases
+- `## 🏗️ Architectural Issues` — design-level problems
+- `## 💡 Recommendations` — improvements (naming, tests, performance)
+- `## ✅ Summary` — risk level (Low / Medium / High) + verdict (Approve / Request Changes / Needs Discussion)
+
+**No MCP tools** — all context comes from the diff itself plus RAG injection. One-shot `agent.ask()` call; no conversation history needed.
+
+**Invocation:** `python scripts/review_pr.py --diff diff.patch`; called automatically by `.github/workflows/pr_review.yml` on every PR open/sync event.
+
+---
 
 ### DevHelpAgent
 
