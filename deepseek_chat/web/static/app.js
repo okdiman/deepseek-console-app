@@ -1186,7 +1186,7 @@ document.addEventListener("DOMContentLoaded", () => {
         parts.push(`discarded: ${[...new Set(_resolvedProposals.discarded)].join(", ")}`);
       _resolvedProposals.applied.length = 0;
       _resolvedProposals.discarded.length = 0;
-      sendAutoMessage(`All proposals resolved (${parts.join("; ")}). What should we do next?`);
+      sendAutoMessage(`All proposals resolved (${parts.join("; ")}). Please confirm and run tests if appropriate.`);
     }
   }
 

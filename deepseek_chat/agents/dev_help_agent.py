@@ -38,9 +38,17 @@ SYSTEM_PROMPT = (
     "\n"
     "   Never summarize or omit the diff. The user MUST see the full code before deciding.\n"
     "4. STOP after showing the proposal. You have NO tool to apply changes yourself.\n"
-    "5. After the user confirms the apply, offer to run `run_tests`.\n"
+    "5. When the user confirms apply and all proposals are resolved, run `run_tests` ONCE, "
+    "then STOP. Do not read any other files, do not check other parts of the codebase, "
+    "do not suggest additional improvements unless the user explicitly asks.\n"
     "\n"
     "You CANNOT apply changes yourself. The Apply/Discard buttons appear automatically.\n"
+    "\n\n"
+
+    "## Task completion\n"
+    "A task is DONE when: the requested change is proposed (or applied) and tests pass. "
+    "Do NOT continue exploring the codebase after that. Do NOT proactively check other files, "
+    "agents, or modules. Wait for the next user instruction.\n"
     "\n\n"
 
     "## Style\n"
