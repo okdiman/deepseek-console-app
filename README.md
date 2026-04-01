@@ -45,6 +45,7 @@ deepseek_chat/
     general_agent.py      # General-purpose agent
     python_agent.py       # Python/RAG-focused agent
     dev_help_agent.py     # Developer assistant (RAG + filesystem + git tools)
+    support_agent.py      # Customer support assistant (RAG + CRM tools)
     background_agent.py   # Minimal agent for scheduled background tasks
     strategies.py         # UnifiedStrategy: sliding window + compression + facts
     hooks/
@@ -90,6 +91,7 @@ mcp_servers/
   demo_server.py          # Hacker News API MCP server
   filesystem_server.py    # Two-phase read/write + run_tests
   git_server.py           # Git info tools (branch, commits, diff, tree)
+  crm_server.py           # CRM: users + tickets (for SupportAgent)
   pipeline_server.py      # Search → summarize → save pipeline
   scheduler/
     scheduler_server.py   # Scheduler MCP tool provider
@@ -103,7 +105,7 @@ tests/                    # 546 unit tests
 
 - **Streaming** via SSE at `/stream` with live Markdown rendering and code highlighting
 - **Stop button** — cancels mid-stream generation
-- **Agents** — General, Python, and Dev Help agent selectable per session
+- **Agents** — General, Python, Dev Help, and Support agent selectable per session
 - **Branches (sidebar)** — autonomous chat sessions with auto-generated titles; switch and delete
 - **Memory (🧠)** — Working memory (clears on `/clear`) and long-term memory across all sessions
 - **Profile (👤)** — Global user profile injected into every agent response

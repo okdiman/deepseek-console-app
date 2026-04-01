@@ -45,6 +45,7 @@ deepseek_chat/agents/
 ├── general_agent.py       — GeneralAgent (default for web UI)
 ├── python_agent.py        — PythonAgent (Python/code-focused)
 ├── dev_help_agent.py      — DevHelpAgent (project documentation assistant)
+├── support_agent.py       — SupportAgent (customer support with RAG + CRM)
 ├── code_review_agent.py   — CodeReviewAgent (automated PR review; used by scripts/review_pr.py)
 ├── background_agent.py    — BackgroundAgent (scheduler tasks, no hooks)
 └── hooks/
@@ -271,9 +272,36 @@ If `agent._skip_after_stream_markers` is set (by `web/streaming.py` which proces
 | `GeneralAgent` | MemoryInjection, InvariantGuard, UserProfile, TaskState, AutoTitle | Default web UI agent |
 | `PythonAgent` | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard, AutoTitle | Python / code-focused conversations with RAG |
 | `DevHelpAgent` | Rag, AutoTitle | Project documentation assistant; `/help <question>` in console and web |
+| `SupportAgent` | Rag, AutoTitle | Customer support assistant; uses RAG (FAQ) + CRM MCP tools (tickets, users) |
 | `CodeReviewAgent` | Rag | Automated PR code review; invoked by `scripts/review_pr.py` and GitHub Actions |
 | `BackgroundAgent` | *(none)* | Scheduler tasks; minimal, no UI hooks |
 | `RagChatAgent` (demo) | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard | RAG mini-chat experiment |
+
+### SupportAgent
+
+`support_agent.py` — customer support assistant that answers product questions using the RAG knowledge base and fetches per-user / per-ticket context from the CRM MCP server.
+
+**Hook stack:** `[RagHook(allow_tools=True), AutoTitleHook]` — identical structure to `DevHelpAgent`.
+
+**Capabilities:**
+- Answers FAQ and product questions via RAG (`docs/corpus/support_faq.md`)
+- Fetches ticket details via `crm__get_ticket(ticket_id)` MCP tool
+- Fetches user profile/plan via `crm__get_user(user_id)` MCP tool
+- Searches related tickets via `crm__search_tickets(query)`
+- Updates ticket status via `crm__update_ticket_status(ticket_id, status)`
+
+**System prompt priorities (enforced):**
+1. CRM tools first when ticket ID or user is mentioned
+2. RAG context for FAQ/product questions
+3. Escalation instruction when issue cannot be resolved locally
+
+**Data sources:**
+- RAG: `docs/corpus/support_faq.md` (FAQs indexed into `data/rag_index.db`)
+- CRM: `data/crm_data.json` (users + tickets, editable JSON)
+
+**Invocation:** Select `support` from the agent dropdown in the web UI.
+
+---
 
 ### CodeReviewAgent
 

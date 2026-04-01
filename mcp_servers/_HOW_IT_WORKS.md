@@ -20,6 +20,7 @@ Tools from all servers are namespaced: a tool `create_reminder` from server `sch
 | `demo_server.py` | Hacker News Server | Fetch top stories and comments from Hacker News |
 | `git_server.py` | Git Project Server | Exposes git info about the project (branch, commits, diffs, file tree) |
 | `filesystem_server.py` | Filesystem Server | Two-phase read/write access to project files (propose → confirm → apply) |
+| `crm_server.py` | CRM Server | User and ticket data for the support assistant |
 | `pipeline_server.py` | — | Experimental pipeline server |
 
 ---
@@ -88,6 +89,31 @@ Two-phase read/write access to the project. All write operations require an expl
 **Run standalone:**
 ```bash
 python3 mcp_servers/filesystem_server.py
+```
+
+---
+
+## crm_server.py — CRM Server
+
+Provides user profile and support ticket data from `data/crm_data.json` to the `SupportAgent`. The server reads and writes this JSON file directly — no database required.
+
+**Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `get_ticket(ticket_id)` | Returns full ticket details + enriched user info (name, plan, status) |
+| `get_user(user_id)` | Returns full user profile + list of their tickets |
+| `list_open_tickets()` | Returns all open and in-progress tickets |
+| `search_tickets(query)` | Case-insensitive search across subject, description, and category |
+| `update_ticket_status(ticket_id, status)` | Updates ticket status; valid values: `open`, `in_progress`, `resolved`, `closed` |
+
+**Data file:** `data/crm_data.json` — contains `users` and `tickets` arrays. Edit this file to add or modify test data. The server reloads the file on every tool call (no caching).
+
+**Registration:** Auto-registered as builtin `crm` server on first app start. See `MCPRegistry._BUILTIN_SERVERS`.
+
+**Run standalone:**
+```bash
+python3 mcp_servers/crm_server.py
 ```
 
 ---

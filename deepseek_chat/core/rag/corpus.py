@@ -22,6 +22,9 @@ CORPUS_FILES: List[CorpusFile] = [
     CorpusFile(_CORPUS_ROOT / "python_concurrency_guide.md",       "markdown", "Concurrency in Computing"),
     CorpusFile(_CORPUS_ROOT / "fastapi_overview.md",               "markdown", "FastAPI Overview"),
 
+    # ── Support documentation (markdown) ──────────────────────────────────
+    CorpusFile(_PROJECT_ROOT / "docs" / "corpus" / "support_faq.md", "markdown", "Support FAQ"),
+
     # ── Project documentation (markdown) ──────────────────────────────────
     CorpusFile(_PROJECT_ROOT / "README.md",  "markdown", "Project README"),
     CorpusFile(_PROJECT_ROOT / "CLAUDE.md",  "markdown", "CLAUDE Architecture Guide"),

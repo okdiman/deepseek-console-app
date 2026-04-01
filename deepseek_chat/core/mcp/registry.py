@@ -71,6 +71,14 @@ _BUILTIN_SERVERS: List[MCPServerConfig] = [
         env={"PYTHONPATH": _PYTHONPATH},
         enabled=True,
     ),
+    MCPServerConfig(
+        id="crm",
+        name="CRM Server",
+        command=_PYTHON,
+        args=["mcp_servers/crm_server.py"],
+        env={},
+        enabled=True,
+    ),
 ]
 
 

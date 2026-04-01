@@ -133,6 +133,7 @@ Concrete agents differ only in their system prompts and hook stacks:
 | `GeneralAgent` | Memory, Profile, Invariants, TaskState, AutoTitle | Web UI default |
 | `PythonAgent` | Rag, Memory, DialogueTask, Profile, Invariants, AutoTitle | Web UI "Python" option |
 | `DevHelpAgent` | Rag, AutoTitle | `/help <question>` (console + web) |
+| `SupportAgent` | Rag, AutoTitle | Web UI "Support" option; FAQ + CRM tools |
 | `CodeReviewAgent` | Rag | `scripts/review_pr.py` + GitHub Actions |
 | `BackgroundAgent` | *(none)* | Scheduler background tasks |
 
@@ -148,6 +149,8 @@ Active hooks are assembled by `web/state.py → get_agent()` and injected via th
 `PythonAgent` hook stack (in order): `RagHook → MemoryInjectionHook → DialogueTaskHook → UserProfileHook → InvariantGuardHook → AutoTitleHook`
 
 `DevHelpAgent` hook stack: `RagHook → AutoTitleHook` (no memory/profile hooks to keep answers doc-focused)
+
+`SupportAgent` hook stack: `RagHook → AutoTitleHook` (same structure as DevHelpAgent; uses CRM MCP tools for ticket/user context)
 
 ### Dialogue Task Memory (Day 25)
 
@@ -201,6 +204,7 @@ All state lives in `~/.deepseek_chat/`:
 | `scheduler.db` | SQLite: scheduled tasks + history | No |
 | `dialogue_task.json` | Dialogue task memory (goal, clarifications, constraints, topics) | Yes (in `rag_chat.py`) |
 | `pending_changes.json` | Filesystem proposal blobs (shared between MCP subprocess and app) | No |
+| `crm_data.json` | CRM users and tickets (read/write by `crm_server.py`) | No |
 
 RAG index lives alongside other app state in `data/` (or `DEEPSEEK_DATA_DIR`):
 | File | Purpose |
@@ -398,3 +402,5 @@ Tests use `pytest` with no mocking of databases (scheduler uses real SQLite temp
 | `test_dev_help_agent.py` | `DevHelpAgent`: hook composition, system prompt |
 | `test_filesystem_server.py` | two-phase filesystem tools: read, propose, apply, discard |
 | `test_code_review_agent.py` | `CodeReviewAgent`: hook composition, system prompt, prompt builder |
+| `test_crm_server.py` | CRM MCP tools: get_ticket, get_user, list_open_tickets, search_tickets, update_ticket_status |
+| `test_support_agent.py` | `SupportAgent`: hook composition, system prompt |
