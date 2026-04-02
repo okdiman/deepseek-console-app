@@ -9,6 +9,7 @@ from ..agents.python_agent import PythonAgent
 from ..agents.general_agent import GeneralAgent
 from ..agents.dev_help_agent import DevHelpAgent
 from ..agents.support_agent import SupportAgent
+from ..agents.code_assistant_agent import CodeAssistantAgent
 from ..core.client import DeepSeekClient
 from ..core.config import ClientConfig, load_config
 from ..core.session import ChatSession
@@ -67,6 +68,7 @@ _AGENT_REGISTRY = {
     "general": "General Agent",
     "dev_help": "Dev Help Agent",
     "support": "Support Agent",
+    "code_assistant": "Code Assistant",
 }
 
 _DEFAULT_AGENT_ID = "general"
@@ -97,7 +99,9 @@ def set_provider(provider: str, session_id: str = "default") -> None:
     _session_clients[session_id] = DeepSeekClient(new_config)
 
 
-def get_agent(agent_id: str, session_id: str = "default") -> PythonAgent | GeneralAgent | DevHelpAgent | SupportAgent:
+def get_agent(
+    agent_id: str, session_id: str = "default"
+) -> PythonAgent | GeneralAgent | DevHelpAgent | SupportAgent | CodeAssistantAgent:
     session = get_session(session_id)
     task_machine = get_task_machine(session_id)
     client = get_client(session_id)
@@ -107,6 +111,8 @@ def get_agent(agent_id: str, session_id: str = "default") -> PythonAgent | Gener
         return DevHelpAgent(client, session, mcp_manager=_mcp_manager)
     if agent_id == "support":
         return SupportAgent(client, session, mcp_manager=_mcp_manager)
+    if agent_id == "code_assistant":
+        return CodeAssistantAgent(client, session, mcp_manager=_mcp_manager)
     return GeneralAgent(client, session, task_machine=task_machine, mcp_manager=_mcp_manager)
 
 

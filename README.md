@@ -44,9 +44,10 @@ deepseek_chat/
     base_agent.py         # Pipeline orchestrator — hook lifecycle
     general_agent.py      # General-purpose agent
     python_agent.py       # Python/RAG-focused agent
-    dev_help_agent.py     # Developer assistant (RAG + filesystem + git tools)
-    support_agent.py      # Customer support assistant (RAG + CRM tools)
-    background_agent.py   # Minimal agent for scheduled background tasks
+    dev_help_agent.py         # Developer assistant (RAG + filesystem + git tools)
+    support_agent.py          # Customer support assistant (RAG + CRM tools)
+    code_assistant_agent.py   # Goal-driven code assistant (search, edit, generate, audit)
+    background_agent.py       # Minimal agent for scheduled background tasks
     strategies.py         # UnifiedStrategy: sliding window + compression + facts
     hooks/
       base.py             # AgentHook ABC
@@ -105,7 +106,7 @@ tests/                    # 546 unit tests
 
 - **Streaming** via SSE at `/stream` with live Markdown rendering and code highlighting
 - **Stop button** — cancels mid-stream generation
-- **Agents** — General, Python, Dev Help, and Support agent selectable per session
+- **Agents** — General, Python, Dev Help, Support, and Code Assistant agent selectable per session
 - **Branches (sidebar)** — autonomous chat sessions with auto-generated titles; switch and delete
 - **Memory (🧠)** — Working memory (clears on `/clear`) and long-term memory across all sessions
 - **Profile (👤)** — Global user profile injected into every agent response

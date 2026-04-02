@@ -40,14 +40,15 @@ user_input
 
 ```
 deepseek_chat/agents/
-├── base_agent.py          — BaseAgent: pipeline orchestration
-├── strategies.py          — UnifiedStrategy: context window management
-├── general_agent.py       — GeneralAgent (default for web UI)
-├── python_agent.py        — PythonAgent (Python/code-focused)
-├── dev_help_agent.py      — DevHelpAgent (project documentation assistant)
-├── support_agent.py       — SupportAgent (customer support with RAG + CRM)
-├── code_review_agent.py   — CodeReviewAgent (automated PR review; used by scripts/review_pr.py)
-├── background_agent.py    — BackgroundAgent (scheduler tasks, no hooks)
+├── base_agent.py              — BaseAgent: pipeline orchestration
+├── strategies.py              — UnifiedStrategy: context window management
+├── general_agent.py           — GeneralAgent (default for web UI)
+├── python_agent.py            — PythonAgent (Python/code-focused)
+├── dev_help_agent.py          — DevHelpAgent (project documentation assistant)
+├── support_agent.py           — SupportAgent (customer support with RAG + CRM)
+├── code_assistant_agent.py    — CodeAssistantAgent (goal-driven file ops: search, edit, generate)
+├── code_review_agent.py       — CodeReviewAgent (automated PR review; used by scripts/review_pr.py)
+├── background_agent.py        — BackgroundAgent (scheduler tasks, no hooks)
 └── hooks/
     ├── base.py             — AgentHook ABC
     ├── __init__.py         — exports all hooks
@@ -273,6 +274,7 @@ If `agent._skip_after_stream_markers` is set (by `web/streaming.py` which proces
 | `PythonAgent` | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard, AutoTitle | Python / code-focused conversations with RAG |
 | `DevHelpAgent` | Rag, AutoTitle | Project documentation assistant; `/help <question>` in console and web |
 | `SupportAgent` | Rag, AutoTitle | Customer support assistant; uses RAG (FAQ) + CRM MCP tools (tickets, users) |
+| `CodeAssistantAgent` | AutoTitle | Goal-driven code assistant: search usages, update docs, generate files, audit rules |
 | `CodeReviewAgent` | Rag | Automated PR code review; invoked by `scripts/review_pr.py` and GitHub Actions |
 | `BackgroundAgent` | *(none)* | Scheduler tasks; minimal, no UI hooks |
 | `RagChatAgent` (demo) | Rag, MemoryInjection, DialogueTask, UserProfile, InvariantGuard | RAG mini-chat experiment |
@@ -345,6 +347,34 @@ If `agent._skip_after_stream_markers` is set (by `web/streaming.py` which proces
 **Invocation:**
 - Console: `/help <question>` — ephemeral session, does not pollute main chat history
 - Web: select `dev_help` from the agent dropdown
+
+---
+
+### CodeAssistantAgent
+
+`code_assistant_agent.py` — goal-driven code assistant that actively reads, searches, analyzes, and proposes changes to project files without being told which specific files to open.
+
+**Hook stack:** `[AutoTitleHook]` — no RAG, no memory. Goes straight to filesystem + git MCP tools based on the user's high-level goal.
+
+**Key difference from DevHelpAgent:** DevHelpAgent answers questions (RAG first, files as fallback). CodeAssistantAgent starts from the files themselves and is focused on file-level tasks rather than code Q&A.
+
+**Supported scenarios (agent self-initiates all file operations):**
+
+| Scenario | Tools used |
+|----------|-----------|
+| Find all usages of a component / API | `search_in_files` → `read_file` (for context) → structured report |
+| Update documentation based on code changes | `list_changed_files` + `get_recent_commits` → `read_file` → `propose_edit`/`propose_write` |
+| Generate a new file (changelog, ADR, report) | `get_recent_commits` + `read_file` → `propose_write` |
+| Audit files against naming / import rules | `search_in_files` → `read_file` → violations report → optional `propose_edit` |
+
+**Write protocol:** identical to `DevHelpAgent` — all edits go through `propose_edit` / `propose_write`; the user applies via UI buttons or `/apply <id>`.
+
+**Operation limits (enforced by system prompt):**
+- Max 8 `read_file` calls per task
+- `search_in_files` before guessing paths
+- Read files one at a time (no batch reads)
+
+**Invocation:** Select `code_assistant` from the agent dropdown in the web UI.
 
 ---
 

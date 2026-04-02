@@ -134,6 +134,7 @@ Concrete agents differ only in their system prompts and hook stacks:
 | `PythonAgent` | Rag, Memory, DialogueTask, Profile, Invariants, AutoTitle | Web UI "Python" option |
 | `DevHelpAgent` | Rag, AutoTitle | `/help <question>` (console + web) |
 | `SupportAgent` | Rag, AutoTitle | Web UI "Support" option; FAQ + CRM tools |
+| `CodeAssistantAgent` | AutoTitle | Web UI "Code Assistant" option; filesystem + git tools |
 | `CodeReviewAgent` | Rag | `scripts/review_pr.py` + GitHub Actions |
 | `BackgroundAgent` | *(none)* | Scheduler background tasks |
 
@@ -404,3 +405,4 @@ Tests use `pytest` with no mocking of databases (scheduler uses real SQLite temp
 | `test_code_review_agent.py` | `CodeReviewAgent`: hook composition, system prompt, prompt builder |
 | `test_crm_server.py` | CRM MCP tools: get_ticket, get_user, list_open_tickets, search_tickets, update_ticket_status |
 | `test_support_agent.py` | `SupportAgent`: hook composition, system prompt |
+| `test_code_assistant_agent.py` | `CodeAssistantAgent`: hook composition, system prompt, registry integration |
